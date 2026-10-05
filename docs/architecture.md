@@ -23,7 +23,9 @@ The project will follow:
 * Development Environment: VS Code
 * Version Control: Git and GitHub
 
-## 3. Main Modules
+## 3. Main Functional Modules
+
+Calorify will contain five main functional modules:
 
 | Module         | Responsibility                                        |
 | -------------- | ----------------------------------------------------- |
@@ -32,8 +34,11 @@ The project will follow:
 | Nutrition      | Searching food and retrieving nutritional information |
 | Meals          | Managing meal entries                                 |
 | Reports        | Generating daily and weekly summaries and charts      |
-| UI             | Managing dashboard and general navigation             |
-| Core           | Shared configuration, extensions and error handling   |
+
+The `core` folder is shared infrastructure for configuration, extensions and error handling. It is not considered a functional module.
+
+Templates, static files, tests and documentation are supporting project resources and are not considered functional modules.
+
 
 ## 4. Application Layers
 
