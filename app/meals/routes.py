@@ -18,7 +18,6 @@ meals_bp = Blueprint(
     url_prefix="/meals"
 )
 
-
 def meal_to_dict(meal):
     return {
         "meal_id": meal.meal_id,

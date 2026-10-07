@@ -9,7 +9,6 @@ nutrition_bp = Blueprint(
     url_prefix="/nutrition"
 )
 
-
 @nutrition_bp.route("/search", methods=["GET"])
 def search():
     food_name = request.args.get("food")

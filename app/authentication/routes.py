@@ -1,57 +1,112 @@
 import re
-from flask import Blueprint, request, jsonify
+
+from flask import Blueprint, request, render_template, redirect
 from flask_login import login_user as flask_login_user, logout_user
 
-from app.authentication.service import register_user, login_user 
+from app.authentication.service import (
+    register_user,
+    login_user
+)
 
 
-auth_bp = Blueprint("authentication", __name__, url_prefix="/auth")
+auth_bp = Blueprint(
+    "authentication",
+    __name__,
+    url_prefix="/auth"
+)
 
 
-@auth_bp.route("/register", methods=["POST"])
-def register():
-    data = request.get_json()
-
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
-    
-    if not username or not email or not password:
-        return jsonify({"message": "All fields are required"}), 400
-   
-    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({"message": "Please enter a valid email address"}), 400
-
-    if len(password) < 8:
-        return jsonify({"message": "Password must be at least 8 characters long"}), 400    
-    
-    user = register_user(username, email, password)
-
-    if user is None:
-        return jsonify({"message": "Email already registered"}), 409
-
-    return jsonify({"message": "Registration successful"}), 201
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    data = request.get_json()
+
+    if request.method == "GET":
+        return render_template(
+            "authentication/login.html"
+        )
+
+    data = request.form if request.form else request.get_json()
 
     email = data.get("email")
     password = data.get("password")
 
     if not email or not password:
-        return jsonify({"message": "Email and password are required"}), 400
+        return render_template(
+            "authentication/login.html",
+            error="Email and password are required"
+        )
 
-    user = login_user(email, password)
+    user = login_user(
+        email,
+        password
+    )
 
     if user is None:
-        return jsonify({"message": "Invalid email or password"}), 401
+        return render_template(
+            "authentication/login.html",
+            error="Invalid email or password"
+        )
 
     flask_login_user(user)
 
-    return jsonify({"message": "Login successful"}), 200
+    return redirect("/profile/")
+
+
+@auth_bp.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "GET":
+        return render_template(
+            "authentication/register.html"
+        )
+
+    data = request.form if request.form else request.get_json()
+
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not username or not email or not password:
+        return render_template(
+            "authentication/register.html",
+            error="All fields are required"
+        )
+
+    if not re.match(
+        r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+        email
+    ):
+        return render_template(
+            "authentication/register.html",
+            error="Please enter a valid email address"
+        )
+
+    if len(password) < 8:
+        return render_template(
+            "authentication/register.html",
+            error="Password must be at least 8 characters long"
+        )
+
+    user = register_user(
+        username,
+        email,
+        password
+    )
+
+    if user is None:
+        return render_template(
+            "authentication/register.html",
+            error="Email already registered"
+        )
+
+    return render_template(
+        "authentication/login.html",
+        success="Account created successfully. Please log in."
+    )
+
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
+
     logout_user()
 
-    return jsonify({"message": "Logout successful"}), 200
+    return redirect("/auth/login")
