@@ -1,0 +1,83 @@
+:root {
+    --orange: #F26B21;
+    --amber: #FFC130;
+    --blue: #3686FA;
+    --green: #4CAF6A;
+    --purple: #B84FE0;
+    --lime: #BBD541;
+    --slate: #6B6B6B;
+    --ink: #1F1F1F;
+    --light-bg: #FAFAFA;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    background-color: var(--light-bg);
+    color: var(--ink);
+    margin: 0;
+}
+
+.calorify-navbar {
+    background-color: white;
+    border-bottom: 1px solid #eeeeee;
+    padding: 14px 0;
+}
+
+.calorify-logo {
+    color: var(--orange) !important;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.nav-link {
+    color: var(--ink) !important;
+    font-weight: 500;
+    margin-left: 12px;
+}
+
+.nav-link:hover {
+    color: var(--orange) !important;
+}
+
+h1 {
+    font-size: 40px;
+    font-weight: 700;
+}
+
+h2 {
+    font-size: 28px;
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.btn-calorify {
+    background-color: var(--orange);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 600;
+}
+
+.btn-calorify:hover {
+    background-color: #d95d1b;
+    color: white;
+}
+
+.text-calorify {
+    color: var(--orange);
+}

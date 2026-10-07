@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Calorify{% endblock %}
+
+{% block content %}
+
+<div class="mb-4">
+    <h1>Good morning!</h1>
+    <p class="text-muted">
+        Track your food and stay on top of your nutrition.
+    </p>
+</div>
+
+
+<!-- Daily Calories -->
+<div class="card p-4 mb-4">
+
+    <p class="text-muted mb-1">Today's calories</p>
+
+    <h2 class="mb-0">
+        {{ today.calories }}
+        <small class="text-muted">
+            / {{ calorie_goal }} kcal
+        </small>
+    </h2>
+
+    <div class="progress mt-3" style="height: 10px;">
+        <div
+            class="progress-bar"
+            style="width: 0%; background-color: #F26B21;">
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Macronutrients -->
+<div class="row g-4 mb-4">
+
+    <!-- Protein -->
+    <div class="col-md-4">
+        <div class="card p-4">
+
+            <p class="text-muted mb-1">
+                Protein
+            </p>
+
+            <h3>
+                {{ today.protein }} /
+                {{ protein_goal }} g
+            </h3>
+
+        </div>
+    </div>
+
+
+    <!-- Carbohydrates -->
+    <div class="col-md-4">
+        <div class="card p-4">
+
+            <p class="text-muted mb-1">
+                Carbohydrates
+            </p>
+
+            <h3>
+                {{ today.carbohydrates }} /
+                {{ carbohydrates_goal }} g
+            </h3>
+
+        </div>
+    </div>
+
+
+    <!-- Fat -->
+    <div class="col-md-4">
+        <div class="card p-4">
+
+            <p class="text-muted mb-1">
+                Fat
+            </p>
+
+            <h3>
+                {{ today.fats }} /
+                {{ fats_goal }} g
+            </h3>
+
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Food Search -->
+<div class="card p-4 mb-4">
+
+    <h3>Search food</h3>
+
+    <p class="text-muted">
+        Find calories and nutrition information.
+    </p>
+
+    <form action="/nutrition/search" method="GET">
+
+        <div class="input-group">
+
+            <input
+                type="text"
+                name="food"
+                class="form-control"
+                placeholder="e.g. chicken biryani, apple, rice"
+                required
+            >
+
+            <button
+                type="submit"
+                class="btn btn-calorify">
+                Search
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+<!-- Today's Meals -->
+<div class="card p-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <h3 class="mb-0">
+            Today's meals
+        </h3>
+
+        <a
+            href="/meals/"
+            class="btn btn-calorify">
+            + Add meal
+        </a>
+
+    </div>
+
+
+    {% if today.meal_count == 0 %}
+
+        <p class="text-muted mb-0">
+            No meals added yet today.
+        </p>
+
+    {% else %}
+
+        <p class="mb-0">{{ today.meal_count }} meal(s) logged today.</p>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
