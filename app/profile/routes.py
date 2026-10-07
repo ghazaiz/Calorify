@@ -28,8 +28,6 @@ def profile():
 
 @profile_bp.route("/", methods=["POST"])
 @login_required
-@profile_bp.route("/", methods=["POST"])
-@login_required
 def create_user_profile():
 
     data = request.form

@@ -11,9 +11,9 @@ def calculate_bmi(height_cm, weight_kg):
 
 
 def calculate_macro_targets(daily_calorie_target):
-    protein = (daily_calorie_target * 0.30) / 4
-    carbohydrates = (daily_calorie_target * 0.40) / 4
-    fats = (daily_calorie_target * 0.30) / 9
+    protein = (daily_calorie_target * 0.21) / 4
+    carbohydrates = (daily_calorie_target * 0.54) / 4
+    fats = (daily_calorie_target * 0.25) / 9
 
     return (
         round(protein, 1),
