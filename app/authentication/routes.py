@@ -1,5 +1,5 @@
 import re
-print("Hello")
+print("Hi")
 from flask import Blueprint, request, render_template, redirect
 from flask_login import login_user as flask_login_user, logout_user
 
