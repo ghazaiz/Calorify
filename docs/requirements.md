@@ -1,6 +1,6 @@
 # Calorify - Software Requirements Specification
 
-## 1. Project Overview
+## 1. Project 
 
 Calorify is a web-based calorie and nutrition tracking application developed using Python and Flask.
 
