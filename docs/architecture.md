@@ -1,6 +1,6 @@
 # Calorify - System Architecture
 
-## 1. Architecture Overview
+## 1. Architecture 
 
 Calorify will use a modular Flask architecture. The application will be divided into independent modules, each responsible for a specific functionality.
 
