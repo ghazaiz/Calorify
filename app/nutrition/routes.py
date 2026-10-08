@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 
 from app.nutrition.service import search_food
 
@@ -9,11 +9,18 @@ nutrition_bp = Blueprint(
     url_prefix="/nutrition"
 )
 
+
+@nutrition_bp.route("/guest", methods=["GET"])
+def guest_search():
+    return render_template("nutrition/guest.html")
+
 @nutrition_bp.route("/search", methods=["GET"])
 def search():
     food_name = request.args.get("food")
 
     if not food_name:
+        if request.accept_mimetypes.best == "text/html":
+            return render_template("nutrition/search.html")
         return jsonify({
             "message": "Please enter a food name"
         }), 400
@@ -46,13 +53,32 @@ def search():
         )
 
         if result is None:
+            if request.accept_mimetypes.best == "text/html":
+                return render_template(
+                    "nutrition/search.html",
+                    searched_food=food_name,
+                    error=f"We couldn't find nutrition information for “{food_name}”. Try another food."
+                ), 404
             return jsonify({
                 "message": "Food not found"
             }), 404
 
+        if request.accept_mimetypes.best == "text/html":
+            return render_template(
+                "nutrition/search.html",
+                result=result,
+                searched_food=food_name
+            )
+
         return jsonify(result), 200
 
     except Exception as error:
+        if request.accept_mimetypes.best == "text/html":
+            return render_template(
+                "nutrition/search.html",
+                searched_food=food_name,
+                error="The nutrition service is temporarily unavailable. Please try again."
+            ), 503
         return jsonify({
             "message": "Unable to get nutrition information",
             "error": str(error)

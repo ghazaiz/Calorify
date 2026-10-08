@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}My meals | Calorify{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">YOUR FOOD JOURNAL</p><h1>My meals</h1><p class="page-subtitle">Review and manage everything you have logged.</p></div><button class="primary-button" type="button" data-open-meal>+ Log a meal</button></div>
+<section class="table-card">
+    {% if meals %}
+    <div class="meal-table-wrap"><table class="meal-table"><thead><tr><th>Food</th><th>Type</th><th>Serving</th><th>Calories</th><th>Macros</th><th></th></tr></thead><tbody>
+    {% for meal in meals %}
+    <tr><td><strong>{{ meal.food_name }}</strong><small>{{ meal.date }}</small></td><td><span class="meal-badge">{{ meal.meal_type|title }}</span></td><td>{{ meal.quantity }} {{ meal.serving_unit }}</td><td><strong>{{ meal.calories|round|int }} kcal</strong></td><td>{{ meal.protein|round|int }}g protein<br>{{ meal.carbohydrates|round|int }}g carbs · {{ meal.fats|round|int }}g fat</td><td><button class="icon-button" type="button" data-edit-meal='{{ meal|tojson }}'>Edit</button><button class="icon-button" type="button" data-delete-meal="{{ meal.meal_id }}" aria-label="Delete {{ meal.food_name }}">Delete</button></td></tr>
+    {% endfor %}</tbody></table></div>
+    {% else %}<div class="empty-state"><span class="empty-icon">🍽</span><h2>Your journal is empty</h2><p>Log your first meal to start tracking your nutrition.</p><button class="primary-button" type="button" data-open-meal>Log your first meal</button></div>{% endif %}
+</section>
+<div class="meal-modal" data-meal-modal hidden><form class="meal-dialog" data-meal-form><button class="modal-close" type="button" data-close-meal aria-label="Close">×</button><h2>Log a meal</h2><p>Add the nutrition details for your meal.</p><label>Food name<input name="food_name" required placeholder="e.g. Chicken biryani"></label><div class="form-row"><label>Meal type<select name="meal_type"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option></select></label><label>Quantity<input name="quantity" type="number" min="0.1" step="0.1" value="1" required></label></div><label>Serving unit<input name="serving_unit" value="serving" required></label><div class="form-row"><label>Calories<input name="calories" type="number" min="0" required></label><label>Protein (g)<input name="protein" type="number" min="0" step="0.1" value="0" required></label></div><div class="form-row"><label>Carbs (g)<input name="carbohydrates" type="number" min="0" step="0.1" value="0" required></label><label>Fat (g)<input name="fats" type="number" min="0" step="0.1" value="0" required></label></div><p class="form-error" data-meal-error></p><button class="primary-button modal-submit" type="submit">Save meal</button></form></div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Food search | Calorify{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">NUTRITION LIBRARY</p><h1>Find your food</h1><p class="page-subtitle">Search trusted nutrition data before adding a meal.</p></div></div>
+{% if error %}<div class="form-alert page-alert">{{ error }}</div>{% endif %}
+<section class="search-card"><form method="GET" action="/nutrition/search" class="food-search"><input name="food" value="{{ searched_food or '' }}" placeholder="Search for a food, such as apple or chicken biryani" required><button class="primary-button" type="submit">Search</button></form><p class="search-hint">You can search for branded foods, ingredients, and common dishes.</p></section>
+{% if result and result.food %}
+<section class="nutrition-result"><div class="result-header"><div><p class="eyebrow">SEARCH RESULT</p><h2>{{ result.food.name or searched_food|title }}</h2><p class="page-subtitle">Source: {{ result.source|replace('_', ' ')|title }}</p></div><a href="/meals/" class="secondary-button">View my meals</a></div><div class="result-macros"><div><span class="macro-dot protein"></span><strong>{{ result.food.calories|default(0)|round|int }}</strong><small>Calories</small></div><div><span class="macro-dot protein"></span><strong>{{ result.food.protein|default(0)|round|int }}g</strong><small>Protein</small></div><div><span class="macro-dot carbs"></span><strong>{{ result.food.carbohydrates|default(0)|round|int }}g</strong><small>Carbohydrates</small></div><div><span class="macro-dot fat"></span><strong>{{ result.food.fats|default(0)|round|int }}g</strong><small>Fat</small></div></div></section>
+{% endif %}
+{% endblock %}

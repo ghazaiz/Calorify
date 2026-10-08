@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Weekly report | Calorify{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">YOUR PROGRESS</p><h1>Weekly report</h1><p class="page-subtitle">A simple view of your last seven days.</p></div><a class="secondary-button" href="/reports/dashboard">Back to today</a></div>
+<section class="report-card"><div class="chart-heading"><h2>Calories by day</h2><span>Last 7 days</span></div><div class="bar-chart">{% for day in report %}<div class="bar-column"><span>{{ day.calories|round|int }}</span><div class="bar" style="height: {{ [((day.calories / (report|map(attribute='calories')|max or 1)) * 180), 8]|max }}px"></div><small>{{ day.date[5:] }}</small></div>{% endfor %}</div></section>
+<section class="report-card"><div class="chart-heading"><h2>Nutrition breakdown</h2><span>Daily totals</span></div><div class="report-table"><div class="report-row report-header"><span>Date</span><span>Calories</span><span>Protein</span><span>Carbs</span><span>Fat</span></div>{% for day in report %}<div class="report-row"><span>{{ day.date }}</span><span>{{ day.calories|round|int }} kcal</span><span>{{ day.protein|round|int }}g</span><span>{{ day.carbohydrates|round|int }}g</span><span>{{ day.fats|round|int }}g</span></div>{% endfor %}</div></section>
+{% endblock %}

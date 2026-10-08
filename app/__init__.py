@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, redirect, url_for
+from flask_login import current_user
 from dotenv import load_dotenv
 
 from app.core.extensions import db, login_manager
@@ -41,5 +42,12 @@ def create_app():
     app.register_blueprint(meals_bp)
     app.register_blueprint(nutrition_bp)
     app.register_blueprint(reports_bp)
+
+    @app.route("/", methods=["GET"])
+    def home():
+        if current_user.is_authenticated:
+            return redirect(url_for("reports.dashboard"))
+
+        return redirect(url_for("authentication.login"))
 
     return app

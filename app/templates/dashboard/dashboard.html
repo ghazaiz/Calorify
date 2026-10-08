@@ -2,158 +2,77 @@
 
 {% block title %}Dashboard | Calorify{% endblock %}
 
+{% block body_class %}dashboard-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main_class %}dashboard-shell{% endblock %}
+
 {% block content %}
-
-<div class="mb-4">
-    <h1>Good morning!</h1>
-    <p class="text-muted">
-        Track your food and stay on top of your nutrition.
-    </p>
-</div>
-
-
-<!-- Daily Calories -->
-<div class="card p-4 mb-4">
-
-    <p class="text-muted mb-1">Today's calories</p>
-
-    <h2 class="mb-0">
-        {{ today.calories }}
-        <small class="text-muted">
-            / {{ calorie_goal }} kcal
-        </small>
-    </h2>
-
-    <div class="progress mt-3" style="height: 10px;">
-        <div
-            class="progress-bar"
-            style="width: 0%; background-color: #F26B21;">
-        </div>
-    </div>
-
-</div>
-
-
-<!-- Macronutrients -->
-<div class="row g-4 mb-4">
-
-    <!-- Protein -->
-    <div class="col-md-4">
-        <div class="card p-4">
-
-            <p class="text-muted mb-1">
-                Protein
-            </p>
-
-            <h3>
-                {{ today.protein }} /
-                {{ protein_goal }} g
-            </h3>
-
-        </div>
-    </div>
-
-
-    <!-- Carbohydrates -->
-    <div class="col-md-4">
-        <div class="card p-4">
-
-            <p class="text-muted mb-1">
-                Carbohydrates
-            </p>
-
-            <h3>
-                {{ today.carbohydrates }} /
-                {{ carbohydrates_goal }} g
-            </h3>
-
-        </div>
-    </div>
-
-
-    <!-- Fat -->
-    <div class="col-md-4">
-        <div class="card p-4">
-
-            <p class="text-muted mb-1">
-                Fat
-            </p>
-
-            <h3>
-                {{ today.fats }} /
-                {{ fats_goal }} g
-            </h3>
-
-        </div>
-    </div>
-
-</div>
-
-
-<!-- Food Search -->
-<div class="card p-4 mb-4">
-
-    <h3>Search food</h3>
-
-    <p class="text-muted">
-        Find calories and nutrition information.
-    </p>
-
-    <form action="/nutrition/search" method="GET">
-
-        <div class="input-group">
-
-            <input
-                type="text"
-                name="food"
-                class="form-control"
-                placeholder="e.g. chicken biryani, apple, rice"
-                required
-            >
-
-            <button
-                type="submit"
-                class="btn btn-calorify">
-                Search
-            </button>
-
-        </div>
-
-    </form>
-
-</div>
-
-
-<!-- Today's Meals -->
-<div class="card p-4">
-
-    <div class="d-flex justify-content-between align-items-center mb-3">
-
-        <h3 class="mb-0">
-            Today's meals
-        </h3>
-
-        <a
-            href="/meals/"
-            class="btn btn-calorify">
-            + Add meal
+<div class="dashboard-frame">
+    <aside class="dashboard-sidebar">
+        <a class="brand" href="/reports/dashboard" aria-label="Calorify home">
+            <span class="brand-fruit"><i></i></span><span>Calorify</span>
         </a>
+        <nav class="side-nav" aria-label="Main navigation">
+            <a class="active" href="/reports/dashboard">Today</a>
+            <a href="/reports/weekly">Weekly Report</a>
+            <a href="/meals/">My Meals</a>
+            <a href="/profile/">Profile</a>
+        </nav>
+        <button class="theme-toggle" type="button" data-theme-toggle>Dark theme</button>
+    </aside>
 
-    </div>
+    <section class="dashboard-content">
+        <header class="dashboard-header">
+            <div>
+                <p class="eyebrow">{{ today_display|upper }}</p>
+                <h1>Good morning, {{ current_user.username }}</h1>
+            </div>
+            <button class="primary-button" type="button" data-open-meal>+ Log a meal</button>
+        </header>
 
+        <div class="dashboard-grid">
+            <article class="nutrition-card calorie-card">
+                <div class="calorie-ring" style="--calorie-progress: {{ [((today.calories / calorie_goal * 100) if calorie_goal else 0), 100]|min|round|int }}%">
+                    <span class="fruit-marker"><i></i></span>
+                    <div><strong>{{ (calorie_goal - today.calories)|round|int|abs }}</strong><small>{{ "LEFT TODAY" if today.calories <= calorie_goal else "OVER GOAL" }}</small></div>
+                </div>
+                <div class="macro-list">
+                    <div><span class="macro-dot protein"></span><div><b>PROTEIN</b><small>of {{ protein_goal|round|int }}g</small></div><strong>{{ today.protein|round|int }}</strong></div>
+                    <div><span class="macro-dot carbs"></span><div><b>CARBS</b><small>of {{ carbohydrates_goal|round|int }}g</small></div><strong>{{ today.carbohydrates|round|int }}</strong></div>
+                    <div><span class="macro-dot fat"></span><div><b>FAT</b><small>of {{ fats_goal|round|int }}g</small></div><strong>{{ today.fats|round|int }}</strong></div>
+                </div>
+                <p class="calorie-summary">of <b>{{ calorie_goal|round|int }}</b> goal&nbsp; · &nbsp;<b>{{ today.calories|round|int }}</b> eaten</p>
+            </article>
 
-    {% if today.meal_count == 0 %}
+            <article class="nutrition-card water-card">
+                <div class="card-title"><span class="water-icon"></span><h2>Water</h2><span><b data-water-total>0</b> / 2,750 ml</span></div>
+                <div class="water-progress"><span data-water-progress></span></div>
+                <p><span data-water-glasses>0</span> glasses · <span data-water-remaining>2,750</span> ml to go</p>
+                <div class="water-actions"><button type="button" data-water="250">+ Glass 250</button><button type="button" data-water="500">+ Bottle 500</button></div>
+            </article>
+        </div>
 
-        <p class="text-muted mb-0">
-            No meals added yet today.
-        </p>
-
-    {% else %}
-
-        <p class="mb-0">{{ today.meal_count }} meal(s) logged today.</p>
-
-    {% endif %}
-
+        <article class="meals-card">
+            <div class="meals-heading"><h2>Today's meals</h2><span class="meal-count">{{ today.meal_count }} logged</span></div>
+            {% if today.meal_count == 0 %}
+            <p>Nothing logged yet. Tap “Log a meal” to start your day.</p>
+            {% else %}
+            <p>{{ today.meal_count }} meal(s) logged today.</p>
+            {% endif %}
+        </article>
+    </section>
 </div>
 
+<div class="meal-modal" data-meal-modal hidden>
+    <form class="meal-dialog" data-meal-form>
+        <button class="modal-close" type="button" data-close-meal aria-label="Close">×</button>
+        <h2>Log a meal</h2><p>Add the nutrition details for your meal.</p>
+        <label>Food name<input name="food_name" required placeholder="e.g. Chicken biryani"></label>
+        <div class="form-row"><label>Meal type<select name="meal_type"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option></select></label><label>Quantity<input name="quantity" type="number" min="0.1" step="0.1" value="1" required></label></div>
+        <label>Serving unit<input name="serving_unit" value="serving" required></label>
+        <div class="form-row"><label>Calories<input name="calories" type="number" min="0" required></label><label>Protein (g)<input name="protein" type="number" min="0" step="0.1" value="0" required></label></div>
+        <div class="form-row"><label>Carbs (g)<input name="carbohydrates" type="number" min="0" step="0.1" value="0" required></label><label>Fat (g)<input name="fats" type="number" min="0" step="0.1" value="0" required></label></div>
+        <p class="form-error" data-meal-error></p><button class="primary-button modal-submit" type="submit">Save meal</button>
+    </form>
+</div>
 {% endblock %}

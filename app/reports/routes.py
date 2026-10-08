@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from flask import Blueprint, jsonify, request, render_template, redirect
 from flask_login import login_required, current_user
 
@@ -47,6 +49,9 @@ def weekly_report():
         current_user.user_id
     )
 
+    if request.accept_mimetypes.best == "text/html":
+        return render_template("reports/reports.html", report=report)
+
     return jsonify({
         "report": report
     }), 200
@@ -74,6 +79,11 @@ def dashboard():
     return render_template(
         "dashboard/dashboard.html",
         today=today,
+        today_display=(
+            datetime.strptime(today["date"], "%Y-%m-%d").strftime("%A")
+            + f", {datetime.strptime(today['date'], '%Y-%m-%d').day} "
+            + datetime.strptime(today["date"], "%Y-%m-%d").strftime("%B")
+        ),
         calorie_goal=calorie_goal,
         protein_goal=protein_goal,
         carbohydrates_goal=carbohydrates_goal,
