@@ -4,13 +4,7 @@
 
 Calorify will use a modular Flask architecture. The application will be divided into independent modules, each responsible for a specific functionality.
 
-The project will follow:
 
-* Modular Programming
-* Separation of Concerns
-* Clean Code Principles
-* Agile Development
-* Continuous Refactoring
 
 ## 2. Technology Stack
 
