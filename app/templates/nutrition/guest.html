@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Check food calories | Calorify{% endblock %}
+{% block content %}
+<div class="guest-page">
+    <div class="guest-badge">CALORIFY GUEST MODE</div>
+    <h1>Check calories in any food</h1>
+    <p class="page-subtitle">Look up nutrition information without creating an account. Your search will not be saved.</p>
+    <form class="guest-search" method="GET" action="/nutrition/search">
+        <input name="food" placeholder="Try apple, rice, chicken biryani..." required>
+        <button class="primary-button" type="submit">Check calories</button>
+    </form>
+    <p class="guest-note">Want to save meals and track progress? <a href="/auth/register">Create a free account</a>.</p>
+</div>
+{% endblock %}

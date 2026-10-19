@@ -16,6 +16,13 @@
                 </p>
             </div>
 
+            {% if error %}
+            <div class="form-alert mb-3">{{ error }}</div>
+            {% endif %}
+            {% if success %}
+            <div class="form-success mb-3">{{ success }}</div>
+            {% endif %}
+
             <form method="POST" action="/auth/login">
 
                 <div class="mb-3">
@@ -62,6 +69,10 @@
                     Create one
                 </a>
             </p>
+            <div class="guest-option">
+                <span>Only checking food calories?</span>
+                <a href="{{ url_for('nutrition.guest_search') }}">Continue as guest</a>
+            </div>
 
         </div>
 

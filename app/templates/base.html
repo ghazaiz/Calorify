@@ -23,15 +23,16 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='css/style.css') }}"
     >
+    {% block head %}{% endblock %}
 </head>
 
-<body>
+<body class="{% block body_class %}{% endblock %}">
 
-    <!-- Navigation -->
+    {% block navigation %}
     <nav class="navbar navbar-expand-lg calorify-navbar">
         <div class="container">
 
-            <a class="navbar-brand calorify-logo" href="/">
+            <a class="navbar-brand calorify-logo" href="{{ url_for('home') }}">
                 Calorify
             </a>
 
@@ -49,38 +50,50 @@
                 <ul class="navbar-nav ms-auto">
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/">
+                        <a class="nav-link" href="{{ url_for('reports.dashboard') }}">
                             Dashboard
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/meals/">
+                        <a class="nav-link" href="{{ url_for('meals.get_meals') }}">
                             Meals
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/reports/weekly">
+                        <a class="nav-link" href="{{ url_for('reports.weekly_report') }}">
                             Progress
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link" href="/profile/">
+                        <a class="nav-link" href="{{ url_for('profile.profile') }}">
                             Profile
                         </a>
                     </li>
+
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <form method="POST" action="/auth/logout" class="logout-form">
+                            <button class="nav-link nav-button" type="submit">Log out</button>
+                        </form>
+                    </li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('authentication.login') }}">Log in</a></li>
+                    <li class="nav-item"><a class="nav-link nav-guest-link" href="{{ url_for('nutrition.guest_search') }}">Guest mode</a></li>
+                    {% endif %}
 
                 </ul>
 
             </div>
         </div>
     </nav>
+    {% endblock %}
 
 
     <!-- Main Content -->
-    <main class="container py-4">
+    <main class="{% block main_class %}container py-4{% endblock %}">
         {% block content %}
         {% endblock %}
 
@@ -91,5 +104,6 @@
     <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
     </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

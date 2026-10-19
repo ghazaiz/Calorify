@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 
 from app.meals.service import (
@@ -37,6 +37,12 @@ def meal_to_dict(meal):
 @login_required
 def get_meals():
     meals = get_user_meals(current_user.user_id)
+
+    if request.accept_mimetypes.best == "text/html":
+        return render_template(
+            "meals/meals.html",
+            meals=[meal_to_dict(meal) for meal in meals]
+        )
 
     return jsonify({
         "meals": [meal_to_dict(meal) for meal in meals]
