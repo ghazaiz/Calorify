@@ -8,6 +8,7 @@ from app.authentication.service import (
     register_user,
     login_user
 )
+from app.core.exceptions import EmailAlreadyRegisteredError
 from app.profile.models import Profile
 
 auth_bp = Blueprint(
@@ -104,13 +105,13 @@ def register():
             error="Password must be at least 8 characters long"
         )
 
-    user = register_user(
-        username,
-        email,
-        password
-    )
-
-    if user is None:
+    try:
+        register_user(
+            username,
+            email,
+            password
+        )
+    except EmailAlreadyRegisteredError:
         return render_template(
             "authentication/register.html",
             error="Email already registered"

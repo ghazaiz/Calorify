@@ -1,14 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Check food calories | Calorify{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main_class %}guest-shell{% endblock %}
+{% block title %}How many calories? | Calorify{% endblock %}
 {% block content %}
-<div class="guest-page">
-    <div class="guest-badge">CALORIFY GUEST MODE</div>
-    <h1>Check calories in any food</h1>
-    <p class="page-subtitle">Look up nutrition information without creating an account. Your search will not be saved.</p>
-    <form class="guest-search" method="GET" action="/nutrition/search">
-        <input name="food" placeholder="Try apple, rice, chicken biryani..." required>
-        <button class="primary-button" type="submit">Check calories</button>
-    </form>
-    <p class="guest-note">Want to save meals and track progress? <a href="/auth/register">Create a free account</a>.</p>
+<header class="guest-header">
+    <a class="guest-brand" href="{{ url_for('nutrition.guest_search') }}"><span class="brand-fruit">{% include "_brand_mark.html" %}</span> Calorify</a>
+    <span class="guest-badge"><i class="bi bi-search" aria-hidden="true"></i> Guest mode</span>
+    <nav>
+        <a href="{{ url_for('authentication.login') }}">Log in</a>
+        <a class="primary-button small" href="/auth/register">Create free account</a>
+    </nav>
+</header>
+
+<div class="guest-layout">
+    <div class="guest-main">
+        <h1>How many calories?</h1>
+        <p class="page-subtitle">Type any food or meal. No account, no tracking — just the numbers.</p>
+
+        {% if error %}<div class="form-alert">{{ error }}</div>{% endif %}
+
+        <form class="food-search guest-search" method="GET" action="/nutrition/search">
+            <input name="food" value="{{ searched_food or '' }}" placeholder="e.g. Banana" aria-label="Food to check" required>
+            <select name="servings">
+                {% for n in [1, 2, 3, 4] %}<option value="{{ n }}" {% if request.args.get('servings', '1') == n|string %}selected{% endif %}>{{ n }} serving{{ 's' if n > 1 }}</option>{% endfor %}
+            </select>
+            <button class="primary-button" type="submit">Check</button>
+        </form>
+
+        {% if result and result.food %}
+        {% set servings = request.args.get('servings', 1)|float %}
+        {% set food_calories = (result.food.calories|default(0)) * servings %}
+        {% set food_protein = (result.food.protein|default(0)) * servings %}
+        {% set food_carbs = (result.food.carbohydrates|default(0)) * servings %}
+        {% set food_fats = (result.food.fats|default(0)) * servings %}
+        <section class="nutrition-result"
+            data-guest-result='{{ {"food_name": (result.food.name or searched_food|title), "calories": food_calories|round|int}|tojson }}'>
+            {% include "nutrition/_result.html" %}
+        </section>
+        {% endif %}
+
+        <div class="quick-picks guest-picks" data-quick-picks>
+            <b>Popular:</b>
+            {% for pick in ['2 eggs', 'Flat white', 'Pizza slice', 'Rice, 1 cup', 'Avocado', 'Croissant'] %}<button type="button">{{ pick }}</button>{% endfor %}
+        </div>
+    </div>
+
+    <aside class="guest-side">
+        <section class="insight-card">
+            <div class="chart-heading"><h2>This session</h2><span><i class="bi bi-slash-circle" aria-hidden="true"></i> Not saved</span></div>
+            <ul class="recent-checks" data-session-checks><li class="muted">Foods you check will appear here.</li></ul>
+            <p class="session-total" data-session-total hidden>Total checked <b></b></p>
+        </section>
+        <section class="guest-cta">
+            <h2>Want to track your whole day?</h2>
+            <p>Create a free account to save these checks, set goals and see your weekly report.</p>
+            <a class="primary-button" href="/auth/register">Create free account <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        </section>
+    </aside>
 </div>
 {% endblock %}

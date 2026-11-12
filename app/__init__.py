@@ -43,6 +43,16 @@ def create_app():
     app.register_blueprint(nutrition_bp)
     app.register_blueprint(reports_bp)
 
+    @app.context_processor
+    def inject_profile():
+        if current_user.is_authenticated:
+            return {
+                "user_profile": Profile.query.filter_by(
+                    user_id=current_user.user_id
+                ).first()
+            }
+        return {"user_profile": None}
+
     @app.route("/", methods=["GET"])
     def home():
         if current_user.is_authenticated:

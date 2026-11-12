@@ -1,6 +1,7 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from app.core.exceptions import EmailAlreadyRegisteredError
 from app.core.extensions import db
 from app.profile.models import User
 
@@ -17,7 +18,9 @@ def register_user(username, email, password):
     existing_user = User.query.filter_by(email=email).first()
 
     if existing_user:
-        return None
+        raise EmailAlreadyRegisteredError(
+            "Email already registered"
+        )
 
     password_hash = hash_password(password)
 

@@ -1,10 +1,87 @@
 {% extends "base.html" %}
-{% block title %}Food search | Calorify{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main_class %}app-page-shell{% endblock %}
+{% block title %}Calorie Check | Calorify{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">NUTRITION LIBRARY</p><h1>Find your food</h1><p class="page-subtitle">Search trusted nutrition data before adding a meal.</p></div></div>
-{% if error %}<div class="form-alert page-alert">{{ error }}</div>{% endif %}
-<section class="search-card"><form method="GET" action="/nutrition/search" class="food-search"><input name="food" value="{{ searched_food or '' }}" placeholder="Search for a food, such as apple or chicken biryani" required><button class="primary-button" type="submit">Search</button></form><p class="search-hint">You can search for branded foods, ingredients, and common dishes.</p></section>
-{% if result and result.food %}
-<section class="nutrition-result"><div class="result-header"><div><p class="eyebrow">SEARCH RESULT</p><h2>{{ result.food.name or searched_food|title }}</h2><p class="page-subtitle">Source: {{ result.source|replace('_', ' ')|title }}</p></div><a href="/meals/" class="secondary-button">View my meals</a></div><div class="result-macros"><div><span class="macro-dot protein"></span><strong>{{ result.food.calories|default(0)|round|int }}</strong><small>Calories</small></div><div><span class="macro-dot protein"></span><strong>{{ result.food.protein|default(0)|round|int }}g</strong><small>Protein</small></div><div><span class="macro-dot carbs"></span><strong>{{ result.food.carbohydrates|default(0)|round|int }}g</strong><small>Carbohydrates</small></div><div><span class="macro-dot fat"></span><strong>{{ result.food.fats|default(0)|round|int }}g</strong><small>Fat</small></div></div></section>
-{% endif %}
+<div class="app-page">
+    <div class="page-heading">
+        <div><p class="eyebrow">CHECK BEFORE YOU EAT</p><h1>Calorie Check</h1></div>
+    </div>
+    {% if error %}<div class="form-alert page-alert">{{ error }}</div>{% endif %}
+
+    <div class="check-layout">
+        <div class="check-main">
+            <section class="search-card">
+                <form method="GET" action="/nutrition/search" class="food-search" data-search-form>
+                    <input name="food" value="{{ searched_food or '' }}" placeholder="Chicken biryani, avocado toast…" aria-label="Food to check" required>
+                    <select name="servings" data-servings aria-label="Servings">
+                        {% for n in [1, 2, 3, 4] %}<option value="{{ n }}" {% if request.args.get('servings', '1') == n|string %}selected{% endif %}>{{ n }} serving{{ 's' if n > 1 }}</option>{% endfor %}
+                    </select>
+                    <button class="primary-button" type="submit">Check</button>
+                    <div class="mixed-dish-row">
+                        <small>Mixed dish (biryani, karahi, daal chawal…)? Add weights for a better estimate — or just type them, e.g. “300g chicken biryani with 150g chicken”.</small>
+                        <label>Total (g)<input name="quantity" type="number" min="1" step="1" placeholder="e.g. 300" value="{{ request.args.get('quantity', '') }}"></label>
+                        <label>Meat (g)<input name="meat_weight" type="number" min="1" step="1" placeholder="e.g. 150" value="{{ request.args.get('meat_weight', '') }}"></label>
+                    </div>
+                </form>
+            </section>
+
+            {% if result and result.food %}
+            {% set servings = 1 if request.args.get('quantity') else request.args.get('servings', 1)|float %}
+            {% set food_calories = (result.food.calories|default(0)) * servings %}
+            {% set food_protein = (result.food.protein|default(0)) * servings %}
+            {% set food_carbs = (result.food.carbohydrates|default(0)) * servings %}
+            {% set food_fats = (result.food.fats|default(0)) * servings %}
+            <section class="nutrition-result"
+                data-check-result='{{ {"food_name": (result.food.name or searched_food|title), "calories": food_calories|round(1), "protein": food_protein|round(1), "carbohydrates": food_carbs|round(1), "fats": food_fats|round(1), "quantity": (result.food.quantity_grams * servings)|round(1) if result.food.quantity_grams else servings, "serving_unit": "g" if result.food.quantity_grams else "serving"}|tojson }}'>
+                {% include "nutrition/_result.html" %}
+            </section>
+
+            {% if calorie_goal %}
+            {% set after = today.calories + food_calories %}
+            {% set left_after = calorie_goal - after %}
+            <section class="fit-card">
+                <div class="chart-heading"><h2>How it fits your day</h2><span class="fit-pill {{ 'fits' if left_after >= 0 else 'over' }}">{% if left_after >= 0 %}<i class="bi bi-check-circle" aria-hidden="true"></i> Fits{% else %}<i class="bi bi-exclamation-circle" aria-hidden="true"></i> Over goal{% endif %}</span></div>
+                <div class="fit-bar">
+                    <span class="fit-eaten" style="width: {{ [((today.calories / calorie_goal) * 100)|round|int, 100]|min }}%"></span>
+                    <span class="fit-this" style="width: {{ [((food_calories / calorie_goal) * 100)|round|int, (100 - [((today.calories / calorie_goal) * 100)|round|int, 100]|min)]|min }}%"></span>
+                </div>
+                <p class="fit-legend">
+                    <span><span class="legend-dot ok" aria-hidden="true"></span>Eaten {{ today.calories|round|int }}</span>
+                    <span class="this"><span class="legend-dot" aria-hidden="true"></span>This {{ food_calories|round|int }}</span>
+                    <b>{{ left_after|round|int|abs }} kcal {{ 'left after' if left_after >= 0 else 'over goal' }}</b>
+                </p>
+                {% if fats_goal and (today.fats + food_fats) > fats_goal %}
+                <p class="fit-warning"><i class="bi bi-info-circle" aria-hidden="true"></i> Fat would reach {{ (today.fats + food_fats)|round|int }} g — {{ ((today.fats + food_fats) - fats_goal)|round|int }} g over today's {{ fats_goal|round|int }} g goal.</p>
+                {% endif %}
+                <div class="fit-actions">
+                    <select data-add-meal-type>
+                        <option value="breakfast">Breakfast</option>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner" selected>Dinner</option>
+                        <option value="snack">Snack</option>
+                    </select>
+                    <button class="primary-button" type="button" data-add-check><i class="bi bi-plus-lg" aria-hidden="true"></i> Add to today</button>
+                </div>
+                <p class="form-error" data-check-error></p>
+            </section>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <aside class="check-side">
+            <section class="insight-card">
+                <h2>Quick picks</h2>
+                <div class="quick-picks" data-quick-picks>
+                    {% for pick in ['Chicken biryani', 'Daal chawal', 'Chicken karahi', 'Banana', '2 eggs', 'Flat white', 'Rice, 1 cup', 'Apple'] %}<button type="button">{{ pick }}</button>{% endfor %}
+                </div>
+            </section>
+            <section class="insight-card">
+                <div class="chart-heading"><h2>Recent checks</h2><button class="link-button" type="button" data-clear-checks>Clear</button></div>
+                <ul class="recent-checks" data-recent-checks><li class="muted">No checks yet.</li></ul>
+            </section>
+        </aside>
+    </div>
+</div>
+{% include "_sidebar.html" %}
 {% endblock %}

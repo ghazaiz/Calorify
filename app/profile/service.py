@@ -10,6 +10,49 @@ def calculate_bmi(height_cm, weight_kg):
     return round(bmi, 2)
 
 
+def bmi_category(bmi):
+    """Standard adult BMI category for a BMI value."""
+    if bmi < 18.5:
+        return "Underweight"
+
+    if bmi < 25:
+        return "Normal weight"
+
+    if bmi < 30:
+        return "Overweight"
+
+    return "Obesity"
+
+
+def get_bmi_summary(profile):
+    """BMI computed from the profile's latest saved height and weight.
+
+    Returns None when the profile is missing or its measurements are
+    absent or invalid, so callers can show a prompt instead of
+    crashing. BMI is never stored, so it can never go stale.
+    """
+    if profile is None:
+        return None
+
+    try:
+        height_cm = float(profile.height_cm)
+        weight_kg = float(profile.weight_kg)
+    except (TypeError, ValueError):
+        return None
+
+    if height_cm <= 0 or weight_kg <= 0:
+        return None
+
+    bmi = calculate_bmi(height_cm, weight_kg)
+
+    return {
+        "value": bmi,
+        "category": bmi_category(bmi),
+        "height_cm": height_cm,
+        "weight_kg": weight_kg
+    }
+
+
 def calculate_macro_targets(daily_calorie_target):
     protein = (daily_calorie_target * 0.21) / 4
     carbohydrates = (daily_calorie_target * 0.54) / 4
