@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.core.exceptions import InvalidMealTypeError
 from app.core.extensions import db
 from app.meals.models import Meal
 
@@ -25,7 +26,9 @@ def add_meal(
     meal_date=None
 ):
     if meal_type.lower() not in ALLOWED_MEAL_TYPES:
-        return None
+        raise InvalidMealTypeError(
+            "Invalid meal type. Use breakfast, lunch, dinner, or snack"
+        )
 
     meal = Meal(
         user_id=user_id,
@@ -75,7 +78,9 @@ def update_meal(
     meal_date=None
 ):
     if meal_type.lower() not in ALLOWED_MEAL_TYPES:
-        return None
+        raise InvalidMealTypeError(
+            "Invalid meal type. Use breakfast, lunch, dinner, or snack"
+        )
 
     meal.food_name = food_name
     meal.meal_type = meal_type.lower()

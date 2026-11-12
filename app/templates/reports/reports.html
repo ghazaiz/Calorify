@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block navigation %}{% endblock %}
+{% block main_class %}app-page-shell{% endblock %}
+{% block title %}Weekly report | Calorify{% endblock %}
+{% block content %}
+<div class="app-page">
+    <div class="page-heading">
+        <div><p class="eyebrow">{{ range_display|upper }}</p><h1>Weekly Report</h1></div>
+    </div>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <small><i class="bi bi-fire" aria-hidden="true"></i> Avg. daily intake</small>
+            <strong>{{ stats.avg_intake|round|int }}</strong><span>kcal</span>
+            {% if stats.intake_change is not none %}<em>{{ '+' if stats.intake_change > 0 }}{{ stats.intake_change }}% vs last week</em>{% else %}<em>No data last week</em>{% endif %}
+        </div>
+        <div class="stat-card">
+            <small><i class="bi bi-bullseye" aria-hidden="true"></i> Days on target</small>
+            <strong>{{ stats.on_target_days }} / {{ stats.logged_days }}</strong><span>days</span>
+            <em>{{ stats.logged_days }} day{{ 's' if stats.logged_days != 1 }} logged this week</em>
+        </div>
+        <div class="stat-card">
+            <small><span class="macro-dot protein" aria-hidden="true"></span> Avg. protein</small>
+            <strong>{{ stats.avg_protein }}</strong><span>g / day</span>
+            {% if stats.protein_gap is not none and stats.protein_gap > 0 %}<em>{{ stats.protein_gap }} g under goal</em>{% elif stats.protein_gap is not none %}<em>On goal</em>{% else %}<em>Set up your profile</em>{% endif %}
+        </div>
+        <div class="stat-card">
+            <small><span class="macro-dot carbs" aria-hidden="true"></span> Avg. carbs</small>
+            <strong>{{ stats.avg_carbohydrates }}</strong><span>g / day</span>
+            <em>Across logged days</em>
+        </div>
+    </div>
+
+    <div class="report-layout">
+        <section class="report-card">
+            <div class="chart-heading"><h2>Calories per day</h2><span><span class="legend-dot ok" aria-hidden="true"></span>On target &nbsp; <b><span class="legend-dot" aria-hidden="true"></span>Over goal</b> &nbsp; <span class="legend-dash" aria-hidden="true"></span>Goal {{ calorie_goal|round|int }}</span></div>
+            <div class="bar-chart-wrap">
+                {% set max_cal = [report|map(attribute='calories')|max, calorie_goal, 1]|max %}
+                {% if calorie_goal %}<div class="goal-line" style="bottom: {{ ((calorie_goal / max_cal) * 205)|round|int }}px"></div>{% endif %}
+                <div class="bar-chart">
+                    {% for day in report %}
+                    <div class="bar-column">
+                        <span>{{ day.calories|round|int }}</span>
+                        <div class="bar {% if calorie_goal and day.calories > calorie_goal %}over{% endif %} {% if day.date == today_iso %}today{% endif %}" style="height: {{ [((day.calories / max_cal) * 205)|round|int, 8]|max }}px"></div>
+                        <small>{{ day.label }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <div class="report-side">
+            {% if stats.macro_split %}
+            <aside class="insight-card macro-split-card">
+                <h2>Macro split</h2>
+                <div class="macro-split">
+                    <div class="donut" style="--p: {{ stats.macro_split.protein }}; --c: {{ stats.macro_split.carbohydrates }};"></div>
+                    <ul class="donut-legend">
+                        <li><span class="macro-dot protein"></span>Protein <b>{{ stats.macro_split.protein }}%</b></li>
+                        <li><span class="macro-dot carbs"></span>Carbs <b>{{ stats.macro_split.carbohydrates }}%</b></li>
+                        <li><span class="macro-dot fat"></span>Fat <b>{{ stats.macro_split.fats }}%</b></li>
+                    </ul>
+                </div>
+            </aside>
+            {% endif %}
+
+            <aside class="insight-card">
+                <h2>Insights</h2>
+                {% for insight in stats.insights %}<p class="insight-row"><i class="bi {{ 'bi-check-circle good' if insight.icon == 'check' else 'bi-info-circle' }}" aria-hidden="true"></i><span>{{ insight.text }}</span></p>{% endfor %}
+            </aside>
+        </div>
+    </div>
+</div>
+{% include "_sidebar.html" %}
+{% endblock %}
