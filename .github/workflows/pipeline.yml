@@ -2,8 +2,10 @@
 name: Calorify CI Pipeline
 
 on:
-  push:
+  push: 
+    branches: [Development]  
   pull_request:
+    branches: [Development]
 
 jobs:
   test:
