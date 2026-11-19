@@ -1,0 +1,32 @@
+<aside class="app-sidebar">
+    <a class="brand" href="{{ url_for('reports.dashboard') }}">
+        <span class="brand-fruit">{% include "_brand_mark.html" %}</span><span>Calorify</span>
+    </a>
+    <nav class="side-nav" aria-label="Main navigation">
+        <a class="{% if request.endpoint == 'reports.dashboard' %}active{% endif %}" href="{{ url_for('reports.dashboard') }}">
+            <i class="bi bi-house-door" aria-hidden="true"></i>
+            <span>Today</span>
+        </a>
+        <a class="{% if request.endpoint == 'reports.weekly_report' %}active{% endif %}" href="{{ url_for('reports.weekly_report') }}">
+            <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+            <span>Weekly Report</span>
+        </a>
+        <a class="{% if request.endpoint == 'meals.get_meals' %}active{% endif %}" href="{{ url_for('meals.get_meals') }}">
+            <i class="bi bi-journal-text" aria-hidden="true"></i>
+            <span>My Meals</span>
+        </a>
+        <a class="{% if request.endpoint == 'nutrition.search' %}active{% endif %}" href="{{ url_for('nutrition.search') }}">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <span>Calorie Check</span>
+            <b class="new-pill">NEW</b>
+        </a>
+        <a class="{% if request.endpoint == 'profile.profile' %}active{% endif %}" href="{{ url_for('profile.profile') }}">
+            <i class="bi bi-person" aria-hidden="true"></i>
+            <span>Profile</span>
+        </a>
+    </nav>
+    <div class="sidebar-bottom">
+        <button class="theme-toggle" type="button" data-theme-toggle><i class="bi bi-sun" aria-hidden="true"></i> Light <span><i class="bi bi-moon" aria-hidden="true"></i> Dark</span></button>
+        <div class="user-chip"><span class="profile-avatar">{{ current_user.username[0]|upper }}</span><div><strong>{{ current_user.username }}</strong><small>{% if user_profile %}Goal: {{ "{:,}".format(user_profile.daily_calorie_target) }} kcal{% else %}Set up your goals{% endif %}</small></div></div>
+    </div>
+</aside>

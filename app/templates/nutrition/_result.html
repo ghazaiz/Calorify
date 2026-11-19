@@ -1,0 +1,40 @@
+{# Shared nutrition result card body.
+   Expects: result, searched_food, servings, food_calories,
+   food_protein, food_carbs, food_fats (already scaled by servings). #}
+<div class="result-header">
+    <div><span class="meal-food-icon big"></span></div>
+    <div class="result-title">
+        <h2>{{ result.food.name or searched_food|title }}</h2>
+        <p class="page-subtitle">
+            {%- if result.food.quantity_grams -%}
+                {{ (result.food.quantity_grams * servings)|round|int }} g total
+                {%- if result.food.meat_weight_grams %} · {{ (result.food.meat_weight_grams * servings)|round|int }} g meat{% endif -%}
+            {%- else -%}
+                {{ servings|round|int }} serving{{ 's' if servings > 1 }}
+            {%- endif %}
+            · Source: {{ result.source|replace('_', ' ')|title }}
+            {% if result.food.estimate %}<span class="estimate-chip" title="Recipes vary, so these values are an estimate">~ Estimated</span>{% endif %}
+        </p>
+    </div>
+    <div class="result-kcal"><strong>{{ food_calories|round|int }}</strong><small>KCAL</small></div>
+</div>
+
+{% set macro_total = (food_protein * 4) + (food_carbs * 4) + (food_fats * 9) %}
+<div class="result-macros">
+    <div><small><span class="macro-dot protein"></span> PROTEIN</small><strong>{{ food_protein|round(1) }} <small>g</small></strong><div class="macro-bar"><span class="protein" style="width: {{ ((food_protein * 4 / macro_total * 100) if macro_total else 0)|round|int }}%"></span></div></div>
+    <div><small><span class="macro-dot carbs"></span> CARBS</small><strong>{{ food_carbs|round(1) }} <small>g</small></strong><div class="macro-bar"><span class="carbs" style="width: {{ ((food_carbs * 4 / macro_total * 100) if macro_total else 0)|round|int }}%"></span></div></div>
+    <div><small><span class="macro-dot fat"></span> FAT</small><strong>{{ food_fats|round(1) }} <small>g</small></strong><div class="macro-bar"><span class="fat" style="width: {{ ((food_fats * 9 / macro_total * 100) if macro_total else 0)|round|int }}%"></span></div></div>
+</div>
+
+{% if result.food.components and result.food.components|length > 1 and servings == 1 %}
+<div class="component-list">
+    <small class="component-heading">WHAT'S INSIDE</small>
+    {% for component in result.food.components %}
+    <div class="component-row">
+        <span>{{ component.name }}</span>
+        <small>{{ component.grams|round|int }} g</small>
+        <b>{{ component.calories|round|int }} kcal</b>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
