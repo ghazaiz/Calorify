@@ -210,3 +210,41 @@ def test_each_user_sees_only_their_own_bmi():
     assert b"37.1" in dashboard_b.data              # 95 kg / 1.60 m
     assert b"Obesity" in dashboard_b.data
     assert b"24.2" not in dashboard_b.data
+
+
+def test_profile_rejects_nonfinite_measurements_and_invalid_choices():
+    app = create_app()
+    client = app.test_client()
+    register_and_login(client, "profile-validation@example.com")
+    assert client.post("/profile/", data=PROFILE_FORM).status_code == 302
+
+    for changes in ({"weight_kg": "NaN"}, {"goal": ["lose"]}, {"age": 25.5}):
+        response = client.put("/profile/", json={**PROFILE_JSON, **changes})
+        assert response.status_code == 400
+
+    assert client.get("/profile/export").get_json()["profile"]["weight_kg"] == 70
+
+
+def test_weekly_loss_is_restored_on_profile_form():
+    app = create_app()
+    client = app.test_client()
+    register_and_login(client, "weekly-loss@example.com")
+    assert client.post("/profile/", data={**PROFILE_FORM, "goal": "lose", "weekly_loss": "1"}).status_code == 302
+    response = client.get("/profile/")
+    assert response.status_code == 200
+    assert b'value="1" selected' in response.data
+    assert client.get("/profile/export").get_json()["profile"]["weekly_loss"] == 1
+
+
+def test_existing_sqlite_database_gains_weekly_loss_column():
+    from sqlalchemy import inspect, text
+    from app import initialize_database
+
+    app = create_app()
+    with app.app_context():
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE profiles DROP COLUMN weekly_loss"))
+        initialize_database()
+        initialize_database()
+        columns = inspect(db.engine).get_columns("profiles")
+        assert "weekly_loss" in {column["name"] for column in columns}

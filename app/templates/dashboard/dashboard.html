@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
 
 {% block title %}Dashboard | Calorify{% endblock %}
 
@@ -14,39 +15,42 @@
         <header class="dashboard-header">
             <div>
                 <p class="eyebrow">{{ today_display|upper }}</p>
-                <h1>Good morning, {{ current_user.username }}</h1>
+                <h1>Today, {{ current_user.username }}</h1>
             </div>
-            <button class="primary-button" type="button" data-open-meal><i class="bi bi-plus-lg" aria-hidden="true"></i> Log a meal</button>
+            <button class="primary-button" type="button" data-open-meal>{{ icon('plus') }} Log a meal</button>
         </header>
 
+        {% if request.args.get('meal_saved') == '1' %}<p class="meal-status" role="status">Meal saved.</p>{% endif %}
+        {% if request.args.get('profile_saved') == '1' %}<p class="meal-status" role="status">Profile saved.</p>{% endif %}
+        {% if not calorie_goal %}<p class="page-subtitle"><a href="{{ url_for('profile.profile') }}">Set up your profile</a> to see nutrition targets.</p>{% endif %}
         <div class="dashboard-grid">
             <article class="nutrition-card calorie-card">
                 <div class="calorie-overview">
                     <div class="calorie-ring" style="--calorie-progress: {{ [((today.calories / calorie_goal * 100) if calorie_goal else 0), 100]|min|round|int }}%">
                         <span class="fruit-marker" aria-hidden="true">{% include "_brand_mark.html" %}</span>
-                        <div><strong>{{ (calorie_goal - today.calories)|round|int|abs }}</strong><small>{{ "LEFT TODAY" if today.calories <= calorie_goal else "OVER GOAL" }}</small></div>
+                        <div><strong>{{ ((calorie_goal - today.calories)|abs if calorie_goal else today.calories)|round(1) }}</strong><small>{{ ("LEFT TODAY" if today.calories <= calorie_goal else "OVER GOAL") if calorie_goal else "KCAL LOGGED" }}</small></div>
                     </div>
                     <div class="macro-list">
                         <div class="macro-row">
                             <span class="macro-ring" style="--macro-color: var(--red); --pct: {{ [((today.protein / protein_goal * 100) if protein_goal else 0), 100]|min|round|int }}"><span>{{ today.protein|round|int }}</span></span>
-                            <div><b><span class="macro-dot protein"></span>PROTEIN</b><small>of {{ protein_goal|round|int }} g</small></div>
+                            <div><b><span class="macro-dot protein"></span>PROTEIN</b><small>{% if protein_goal %}of {{ protein_goal|round|int }} g{% else %}g logged{% endif %}</small></div>
                         </div>
                         <div class="macro-row">
                             <span class="macro-ring" style="--macro-color: var(--amber); --pct: {{ [((today.carbohydrates / carbohydrates_goal * 100) if carbohydrates_goal else 0), 100]|min|round|int }}"><span>{{ today.carbohydrates|round|int }}</span></span>
-                            <div><b><span class="macro-dot carbs"></span>CARBS</b><small>of {{ carbohydrates_goal|round|int }} g</small></div>
+                            <div><b><span class="macro-dot carbs"></span>CARBS</b><small>{% if carbohydrates_goal %}of {{ carbohydrates_goal|round|int }} g{% else %}g logged{% endif %}</small></div>
                         </div>
                         <div class="macro-row">
                             <span class="macro-ring" style="--macro-color: var(--green); --pct: {{ [((today.fats / fats_goal * 100) if fats_goal else 0), 100]|min|round|int }}"><span>{{ today.fats|round|int }}</span></span>
-                            <div><b><span class="macro-dot fat"></span>FAT</b><small>of {{ fats_goal|round|int }} g</small></div>
+                            <div><b><span class="macro-dot fat"></span>FAT</b><small>{% if fats_goal %}of {{ fats_goal|round|int }} g{% else %}g logged{% endif %}</small></div>
                         </div>
                     </div>
                 </div>
-                <p class="calorie-summary"><b>{{ "{:,}".format(today.calories|round|int) }}</b> eaten&nbsp; · &nbsp;<b>{{ "{:,}".format(calorie_goal|round|int) }}</b> goal</p>
+                <p class="calorie-summary"><b>{{ "{:,}".format(today.calories|round(1)) }}</b> eaten&nbsp; · &nbsp;<b>{{ "{:,}".format(calorie_goal|round|int) }}</b> goal</p>
             </article>
 
             <div class="dashboard-stack">
                 <article class="nutrition-card water-card">
-                    <div class="card-title"><span class="water-icon"></span><h2>Water</h2><span><b data-water-total>0</b> / 2,750 ml</span></div>
+                    <div class="card-title"><span class="water-icon">{{ icon('droplet') }}</span><h2>Water</h2><span><b data-water-total>0</b> / 2,750 ml</span></div>
                     <div class="water-progress"><span data-water-progress></span></div>
                     <p><span data-water-glasses>0</span> glasses · <span data-water-remaining>2,750</span> ml to go</p>
                     <div class="water-actions"><button type="button" data-water="250">+ Glass 250</button><button type="button" data-water="500">+ Bottle 500</button></div>
@@ -54,7 +58,7 @@
 
                 <article class="nutrition-card bmi-card">
                     <div class="card-title">
-                        <span class="bmi-icon"></span>
+                        <span class="bmi-icon">{{ icon('scale') }}</span>
                         <h2>BMI</h2>
                         {% if bmi %}<span class="bmi-chip {{ bmi.category|lower|replace(' ', '-') }}">{{ bmi.category }}</span>{% endif %}
                     </div>
@@ -76,13 +80,13 @@
                 <div class="meals-heading"><h2>Today's meals</h2><a href="{{ url_for('meals.get_meals') }}">See all ›</a></div>
                 {% if meals %}
                 <div class="today-meals">
-                    {% for meal in meals[:3] %}<div class="today-meal"><span class="meal-food-icon"></span><div><b>{{ meal.food_name }}</b><small>{{ meal.meal_type|title }} · {{ meal.quantity|round|int }} {{ meal.serving_unit }}</small></div><strong>{{ meal.calories|round|int }} <small>kcal</small></strong></div>{% endfor %}
+                    {% for meal in meals[:3] %}<div class="today-meal"><span class="meal-food-icon">{{ icon('meal') }}</span><div><b>{{ meal.food_name }}</b><small>{{ meal.meal_type|title }} · {{ meal.quantity|round(2) }} {{ meal.serving_unit }}</small></div><strong>{{ meal.calories|round(2) }} <small>kcal</small></strong></div>{% endfor %}
                     {% set dinner_logged = meals|selectattr('meal_type', 'equalto', 'dinner')|list %}
                     {% if not dinner_logged and today.calories < calorie_goal %}
-                    <div class="empty-meal"><span><i class="bi bi-plus-lg" aria-hidden="true"></i></span><div><b>Dinner</b><small>Not logged yet — about {{ (calorie_goal - today.calories)|round|int }} kcal fits your day</small></div></div>
+                    <div class="empty-meal"><span>{{ icon('plus') }}</span><div><b>Dinner</b><small>Not logged yet — about {{ (calorie_goal - today.calories)|round|int }} kcal fits your day</small></div></div>
                     {% endif %}
                 </div>
-                {% else %}<div class="empty-meal"><span><i class="bi bi-plus-lg" aria-hidden="true"></i></span><div><b>Log your first meal</b><small>Start tracking your day with breakfast.</small></div></div>{% endif %}
+                {% else %}<div class="empty-meal"><span>{{ icon('plus') }}</span><div><b>Log your first meal</b><small>Add it manually or <a href="{{ url_for('nutrition.search') }}">look up a food</a>.</small></div></div>{% endif %}
             </article>
 
             <article class="nutrition-card week-card">
@@ -91,29 +95,17 @@
                     {% set max_cal = [week|map(attribute='calories')|max, calorie_goal, 1]|max %}
                     {% for day in week %}
                     <div class="mini-bar-column">
-                        <div class="mini-bar {% if calorie_goal and day.calories > calorie_goal %}over{% endif %} {% if day.date == today.date %}today{% endif %}" style="--bar-height: {{ [((day.calories / max_cal) * 100)|round|int, 4]|max }}%"></div>
+                        <div class="mini-bar {% if calorie_goal and day.calories > calorie_goal %}over{% endif %} {% if day.date == today.date %}today{% endif %}" style="--bar-height: {{ ((day.calories / max_cal) * 100)|round|int }}%"></div>
                         <small>{{ day.date[8:]|int }}</small>
                     </div>
                     {% endfor %}
                 </div>
-                {% set week_on_target = week|selectattr('calories', 'gt', 0)|selectattr('calories', 'le', calorie_goal)|list|length %}
-                <p class="week-note"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> <b>{{ week_on_target }} of 7</b> days on target</p>
+                {% set week_on_target = week|selectattr('meal_count', 'gt', 0)|selectattr('calories', 'le', calorie_goal)|list|length %}
+                {% if calorie_goal %}<p class="week-note">{{ icon('trend') }} <b>{{ week_on_target }} of 7</b> days on target</p>{% endif %}
             </article>
         </div>
     </section>
 </div>
 
-<div class="meal-modal" data-meal-modal hidden>
-    <form class="meal-dialog" data-meal-form>
-        <button class="modal-close" type="button" data-close-meal aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-        <h2>Log a meal</h2><p>Add the nutrition details for your meal.</p>
-        <label>Food name<input name="food_name" required placeholder="e.g. Chicken biryani"></label>
-        <div class="form-row"><label>Meal type<select name="meal_type"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option></select></label><label>Quantity<input name="quantity" type="number" min="0.1" step="0.1" value="1" required></label></div>
-        <label>Serving unit<input name="serving_unit" value="serving" required></label>
-        <div class="form-row"><label>Calories<input name="calories" type="number" min="0" required></label><label>Protein (g)<input name="protein" type="number" min="0" step="0.1" value="0" required></label></div>
-        <div class="form-row"><label>Carbs (g)<input name="carbohydrates" type="number" min="0" step="0.1" value="0" required></label><label>Fat (g)<input name="fats" type="number" min="0" step="0.1" value="0" required></label></div>
-        <p class="meal-fit" data-meal-fit data-goal="{{ calorie_goal|round|int }}" data-eaten="{{ today.calories|round|int }}" hidden></p>
-        <p class="form-error" data-meal-error></p><button class="primary-button modal-submit" type="submit">Save meal</button>
-    </form>
-</div>
+{% include "meals/_dialog.html" %}
 {% endblock %}

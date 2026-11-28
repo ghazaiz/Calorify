@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
 {% block navigation %}{% endblock %}
 {% block main_class %}app-page-shell{% endblock %}
 {% block title %}Weekly report | Calorify{% endblock %}
@@ -10,13 +11,13 @@
 
     <div class="stat-grid">
         <div class="stat-card">
-            <small><i class="bi bi-fire" aria-hidden="true"></i> Avg. daily intake</small>
-            <strong>{{ stats.avg_intake|round|int }}</strong><span>kcal</span>
+            <small>{{ icon('flame') }} Avg. daily intake</small>
+            <strong>{{ stats.avg_intake if stats.logged_days else '?' }}</strong><span>kcal</span>
             {% if stats.intake_change is not none %}<em>{{ '+' if stats.intake_change > 0 }}{{ stats.intake_change }}% vs last week</em>{% else %}<em>No data last week</em>{% endif %}
         </div>
         <div class="stat-card">
-            <small><i class="bi bi-bullseye" aria-hidden="true"></i> Days on target</small>
-            <strong>{{ stats.on_target_days }} / {{ stats.logged_days }}</strong><span>days</span>
+            <small>{{ icon('target') }} Days on target</small>
+            <strong>{{ stats.on_target_days ~ ' / ' ~ stats.logged_days if calorie_goal else '?' }}</strong><span>days</span>
             <em>{{ stats.logged_days }} day{{ 's' if stats.logged_days != 1 }} logged this week</em>
         </div>
         <div class="stat-card">
@@ -40,8 +41,8 @@
                 <div class="bar-chart">
                     {% for day in report %}
                     <div class="bar-column">
-                        <span>{{ day.calories|round|int }}</span>
-                        <div class="bar {% if calorie_goal and day.calories > calorie_goal %}over{% endif %} {% if day.date == today_iso %}today{% endif %}" style="height: {{ [((day.calories / max_cal) * 205)|round|int, 8]|max }}px"></div>
+                        <span>{{ day.calories|round(1) if day.meal_count else '?' }}</span>
+                        <div class="bar {% if calorie_goal and day.calories > calorie_goal %}over{% endif %} {% if day.date == today_iso %}today{% endif %}" style="height: {{ ((day.calories / max_cal) * 205)|round|int }}px"></div>
                         <small>{{ day.label }}</small>
                     </div>
                     {% endfor %}
@@ -66,7 +67,7 @@
 
             <aside class="insight-card">
                 <h2>Insights</h2>
-                {% for insight in stats.insights %}<p class="insight-row"><i class="bi {{ 'bi-check-circle good' if insight.icon == 'check' else 'bi-info-circle' }}" aria-hidden="true"></i><span>{{ insight.text }}</span></p>{% endfor %}
+                {% for insight in stats.insights %}<p class="insight-row">{{ icon('check-circle', 'good') if insight.icon == 'check' else icon('info') }}<span>{{ insight.text }}</span></p>{% endfor %}
             </aside>
         </div>
     </div>

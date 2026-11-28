@@ -5,6 +5,7 @@ from app.core.extensions import db
 
 class Meal(db.Model):
     __tablename__ = "meals"
+    __table_args__ = (db.Index("ix_meals_user_date", "user_id", "date"),)
 
     meal_id = db.Column(db.Integer, primary_key=True)
 

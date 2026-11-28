@@ -14,12 +14,6 @@
         rel="stylesheet"
     >
 
-    <!-- Bootstrap Icons -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        rel="stylesheet"
-    >
-
     <!-- Google Font -->
     <link
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap"
@@ -29,12 +23,13 @@
     <!-- Calorify CSS -->
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
+        href="{{ url_for('static', filename='css/style.css', v=app_version) }}"
     >
     {% block head %}{% endblock %}
 </head>
 
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" data-icon-sprite="{{ url_for('static', filename='icons.svg', v=app_version) }}">
+    <a class="skip-link" href="#main-content">Skip to content</a>
 
     {% block navigation %}
     <nav class="navbar navbar-expand-lg calorify-navbar">
@@ -49,6 +44,9 @@
                 type="button"
                 data-bs-toggle="collapse"
                 data-bs-target="#navbarContent"
+                aria-controls="navbarContent"
+                aria-expanded="false"
+                aria-label="Toggle navigation"
             >
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -101,7 +99,7 @@
 
 
     <!-- Main Content -->
-    <main class="{% block main_class %}container py-4{% endblock %}">
+    <main id="main-content" tabindex="-1" class="{% block main_class %}container py-4{% endblock %}">
         {% block content %}
         {% endblock %}
 
@@ -112,6 +110,6 @@
     <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
     </script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js', v=app_version) }}"></script>
 </body>
 </html>

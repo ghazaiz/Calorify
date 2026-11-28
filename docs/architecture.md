@@ -16,11 +16,12 @@ The codebase follows:
 | --- | --- |
 | Backend | Python 3.11, Flask 3.1.3 |
 | ORM | Flask-SQLAlchemy 3.1.1 (SQLAlchemy 2.1.2) |
-| Database | SQLite (`calorify.db` file) |
+| Database | SQLite. Local default is `calorify.db`. Production uses a persistent volume supplied via `DATABASE_URL`. |
 | Authentication | Flask-Login 0.6.3 (session cookies) |
-| Nutrition providers | Google Gemini via the `google-genai` SDK, USDA FoodData Central, Open Food Facts |
+| Nutrition providers | USDA FoodData Central, Open Food Facts |
+| Production hosting | Two loopback Gunicorn slots behind Nginx. See [operations](operations.md) for staged delivery, rolling deployment, and recovery. |
 | HTTP client | `requests` (10 s timeouts) |
-| Response validation | Pydantic models (Gemini structured output) |
+| Response validation | Provider nutrient IDs and units, finite numeric checks |
 | Frontend | Jinja2 templates, Bootstrap 5.3.3 (CDN), custom CSS (`static/css/style.css`), vanilla JavaScript (`static/js/script.js`) |
 | Configuration | `python-dotenv` loading a `.env` file |
 | Testing | Pytest 9.1.1 |
@@ -51,7 +52,6 @@ Calorify/
 │   │   ├── routes.py           # /nutrition blueprint: search, guest page
 │   │   ├── service.py          # Provider fallback chain
 │   │   └── providers/
-│   │       ├── gemini.py       # Gemini structured-output provider
 │   │       ├── usda.py         # USDA FoodData Central provider
 │   │       └── open_food_facts.py
 │   ├── meals/
@@ -112,7 +112,7 @@ Module interactions are deliberately thin:
 | Static | `app/static/` | CSS, JavaScript, favicon |
 | Core | `app/core/` | Config, shared extensions, custom exceptions, `wants_json()` helper |
 
-`core/exceptions.py` defines the application's exception hierarchy: `CalorifyError` (base), `EmailAlreadyRegisteredError` (raised by the registration service), `InvalidMealTypeError` (raised by the meal service), and `NutritionProviderError` with its subclass `ProviderNotConfiguredError` (raised by the Gemini and USDA providers when their API key is missing). Services raise these instead of returning `None` sentinels, and routes catch them to produce the corresponding error responses. `reports/charts.py` remains an empty placeholder; all charts are rendered with CSS/Jinja rather than generated server-side.
+`core/exceptions.py` defines the application's exception hierarchy: `CalorifyError` (base), `EmailAlreadyRegisteredError` (raised by the registration service), `InvalidMealTypeError` (raised by the meal service), and `NutritionProviderError` with its subclass `ProviderNotConfiguredError` (raised by USDA when its API key is missing). Services raise these instead of returning `None` sentinels, and routes catch them to produce the corresponding error responses. `reports/charts.py` remains an empty placeholder; all charts are rendered with CSS/Jinja rather than generated server-side.
 
 ## 7. Request Flow
 
@@ -143,41 +143,21 @@ Several endpoints serve both the web UI and JSON from the same URL. The helper `
 
 ## 9. Nutrition Provider Fallback
 
-`nutrition/service.search_food(food_name, quantity_grams, meat_weight_grams)` tries providers in a fixed order and returns `{"source": <provider>, "food": <data>}` or `None`:
+The nutrition service queries USDA FoodData Central first and Open Food Facts
+when USDA has no compatible, complete result for the requested unit. USDA
+requires a free API key. Open Food Facts uses the public product-label API.
+Each request has a five-second timeout.
 
-```mermaid
-flowchart TD
-    Q[Search request] --> G{Google Gemini\n15 s cap, 1 attempt}
-    G -->|structured result| OK1[source: gemini\nwhole-dish totals + components]
-    G -->|timeout / error / no key| U{USDA FoodData Central\n10 s timeout}
-    U -->|first match| OK2[source: usda\nper-100 g values]
-    U -->|error / no result| O{Open Food Facts\n10 s timeout}
-    O -->|first product| OK3[source: open_food_facts\nper-100 g values]
-    O -->|error / no result| N[None -> 404 Food not found]
-```
+USDA nutrient IDs distinguish total macros from subcategories and establish
+the energy priority. Open Food Facts supplies normalized values per 100 g
+or per 100 ml for liquids. The app keeps the provider basis, available label
+conversions, and source link with each result. A single portion conversion
+scales each reported nutrient by the requested amount divided by the basis.
 
-### 9.1 Google Gemini (primary)
-
-* Requires `GEMINI_API_KEY`; if it is missing the provider raises immediately and the chain falls through.
-* Runs in a `ThreadPoolExecutor` with a 15-second result timeout, and the SDK itself is configured with a 15-second HTTP timeout and a single attempt, so an overloaded model cannot hang the request.
-* Sends a structured prompt (model `gemini-3.8-flash`) that instructs the model to: read quantities from the food text or the explicit parameters (explicit parameters win), decompose mixed dishes (biryani, pulao, karahi, curry/salan, daal chawal, haleem, …) into components (meat, rice/gravy, absorbed oil and other preparation ingredients), never double-count the meat weight (it is already part of the total; the non-meat portion is `total − meat`), sum components to whole-dish totals, and mark cooked/mixed dishes with `estimate: true`.
-* The response is forced to JSON matching the Pydantic `NutritionResult` schema: `name`, `quantity_grams`, `meat_weight_grams`, `calories`, `protein`, `carbohydrates`, `fats`, `estimate`, and an optional `components` list (`name`, `grams`, `calories`, `protein`, `carbohydrates`, `fats` each).
-* **Limitation:** the decomposition arithmetic is performed by the model under prompt instructions. The application validates the response *shape* with Pydantic but does not numerically re-verify that component grams and calories sum to the totals at runtime (the test suite checks this property on a sample payload).
-
-### 9.2 USDA FoodData Central (first fallback)
-
-* Requires `USDA_API_KEY`. Calls `GET https://api.nal.usda.gov/fdc/v1/foods/search` and takes the **first** result.
-* Maps nutrient names (energy, protein, carbohydrate, total lipid) to a flat result with `serving_size: 100`, `serving_unit: "g"` — values are per 100 g.
-* Ignores `quantity` and `meat_weight`; no component breakdown.
-
-### 9.3 Open Food Facts (second fallback)
-
-* No API key required. Calls the public search endpoint with a project-specific User-Agent and takes the **first** product's `nutriments` per-100 g values.
-* Same flat shape and limitations as USDA.
-
-### 9.4 Error handling in the chain
-
-Each provider call is wrapped in `try/except`; a timeout or exception moves to the next provider. If all three fail, the route returns 404 ("Food not found") when the chain returns `None`, or 503/500 ("service temporarily unavailable") when an unexpected error escapes.
+A partial record shows its reported values and identifies missing macros.
+The meal logger requires complete core values. An unsupported unit exposes
+the available units with HTTP 422. A search with no match returns 404. When
+all configured providers fail the search returns 503.
 
 ## 10. Profile Calculations
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
 
 {% block title %}Login | Calorify{% endblock %}
 {% block navigation %}{% endblock %}
@@ -6,7 +7,7 @@
 
 {% block content %}
 
-<div class="auth-marketing"><a class="guest-brand" href="{{ url_for('authentication.login') }}"><span class="brand-fruit">{% include "_brand_mark.html" %}</span> Calorify</a><h1>Eat smart.<br>Track simply.</h1><p>Log meals, water and macros in one place — or just check what's on your plate.</p><div class="marketing-card" aria-hidden="true"><div class="marketing-ring-circle"><div><strong>460</strong><small>LEFT</small></div></div><div class="marketing-macros"><div><span>Protein</span><div class="macro-bar"><span class="protein" style="width: 58%"></span></div></div><div><span>Carbs</span><div class="macro-bar"><span class="carbs" style="width: 66%"></span></div></div><div><span>Fat</span><div class="macro-bar"><span class="fat" style="width: 48%"></span></div></div></div></div><footer><i class="bi bi-check2" aria-hidden="true"></i> Free forever plan &nbsp;&nbsp; <i class="bi bi-check2" aria-hidden="true"></i> Light & dark themes &nbsp;&nbsp; <i class="bi bi-check2" aria-hidden="true"></i> No ads</footer></div><div class="auth-form-wrap">
+<div class="auth-marketing"><a class="guest-brand" href="{{ url_for('authentication.login') }}"><span class="brand-fruit">{% include "_brand_mark.html" %}</span> Calorify</a><h1>Eat smart.<br>Track simply.</h1><p>Log meals, water and macros in one place — or just check what's on your plate.</p><div class="marketing-card" aria-hidden="true"><div class="marketing-ring-circle"><div><strong>460</strong><small>LEFT</small></div></div><div class="marketing-macros"><div><span>Protein</span><div class="macro-bar"><span class="protein" style="width: 58%"></span></div></div><div><span>Carbs</span><div class="macro-bar"><span class="carbs" style="width: 66%"></span></div></div><div><span>Fat</span><div class="macro-bar"><span class="fat" style="width: 48%"></span></div></div></div></div><footer>{{ icon('check') }} Free forever plan &nbsp;&nbsp; {{ icon('check') }} Light & dark themes &nbsp;&nbsp; {{ icon('check') }} No ads</footer></div><div class="auth-form-wrap">
         <div class="auth-card">
 
             <div class="text-center mb-4">
@@ -33,7 +34,7 @@
                     <input
                         type="email"
                         id="email"
-                        name="email"
+                        name="email" autocomplete="email" maxlength="120"
                         class="form-control"
                         placeholder="Enter your email"
                         required
@@ -45,14 +46,12 @@
                         Password
                     </label>
 
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        class="form-control"
-                        placeholder="Enter your password"
-                        required
-                    >
+                    <div class="input-group">
+                        <input type="password" id="password" name="password" autocomplete="current-password"
+                               class="form-control" placeholder="Enter your password" required>
+                        <button class="btn btn-outline-secondary" type="button" data-password-toggle
+                                aria-controls="password" aria-pressed="false">Show</button>
+                    </div>
                 </div>
 
                 <button

@@ -6,7 +6,7 @@ Calorify is a web-based calorie and nutrition tracking application built with Py
 
 Registered users can maintain a personal profile, receive a calculated daily calorie and macronutrient target, search for nutrition information, log meals, and review daily and weekly nutrition summaries on a dashboard. Guests can search for nutrition information without creating an account.
 
-The application retrieves nutrition data from external providers instead of maintaining its own food database. Providers are tried in a fixed priority order: **Google Gemini**, then **USDA FoodData Central**, then **Open Food Facts**.
+The application retrieves nutrition data from external providers instead of maintaining its own food database. Providers are tried in a fixed priority order: **USDA FoodData Central**, then **Open Food Facts**.
 
 Each requirement below carries a status based on inspection of the codebase:
 
@@ -41,14 +41,14 @@ Individuals who want to monitor their food intake through a simple web applicati
 | FR-03 | Registration validates the email format and requires a password of at least 8 characters. | Implemented |
 | FR-04 | Passwords are stored as secure hashes (Werkzeug `generate_password_hash`), never as plain text. | Implemented |
 | FR-05 | A registered user can log in with email and password, and log out. | Implemented |
-| FR-06 | Account-specific pages (profile, meals, reports, dashboard) require login. | Partial — protected routes are enforced with `@login_required`, but because no `login_view` is configured in Flask-Login, an unauthenticated request receives an HTTP `401 Unauthorized` response instead of a redirect to the login page. |
+| FR-06 | Account-specific pages require login. Browsers are redirected to login and JSON clients receive HTTP 401. | Implemented |
 
 ### 4.2 Profile module
 
 | ID | Requirement | Status |
 | --- | --- | --- |
 | FR-07 | A user can create and update a profile with age, sex, height (cm), weight (kg), activity level and weight-management goal (lose / maintain / gain). | Implemented |
-| FR-08 | The system calculates and stores a daily calorie target from the profile using the Mifflin–St Jeor equation with activity multipliers (see `docs/architecture.md` §10 for the exact formula). | Implemented |
+| FR-08 | The system calculates the daily calorie target from the stored profile inputs using the Mifflin–St Jeor equation with activity multipliers. | Implemented |
 | FR-09 | For a weight-loss goal, the user can choose a pace of 0.5 kg or 1 kg per week, which adjusts the calorie deficit. | Implemented |
 | FR-10 | The system calculates daily protein, carbohydrate and fat targets from the calorie target (21% / 54% / 25% of calories). | Implemented |
 | FR-11 | The system calculates BMI and warns when it is below 18.5 or 30 and above. | Partial — calculated in the service layer, but the warning is only returned by the JSON `PUT /profile/` endpoint; the HTML form flow (`POST /profile/`) discards it, so the web page never shows the BMI warning. |
@@ -61,12 +61,12 @@ Individuals who want to monitor their food intake through a simple web applicati
 | ID | Requirement | Status |
 | --- | --- | --- |
 | FR-15 | A user can search for a food by name and view its calories, protein, carbohydrates and fats. | Implemented |
-| FR-16 | Nutrition providers are tried in priority order: Google Gemini first, then USDA FoodData Central, then Open Food Facts. A provider failure or timeout falls through to the next provider. | Implemented |
+| FR-16 | Try USDA FoodData Central, then Open Food Facts if USDA has no compatible complete result or fails. | Implemented |
 | FR-17 | **Guest Nutrition Search**: a visitor without an account can search foods and view nutrition information on a dedicated guest page (`/nutrition/guest`); the search endpoint (`/nutrition/search`) does not require login. Guest search is part of the Nutrition module, not a separate module. | Implemented |
 | FR-18 | Saving a search result as a meal, and seeing how a food fits today's goals, require login. | Implemented |
-| FR-19 | For mixed dishes (e.g. chicken/mutton/beef biryani, pulao, karahi, curry, daal chawal), the search accepts an optional total dish weight and meat weight and returns nutrition for the **complete dish** (rice/gravy portion + meat portion + oil and other preparation ingredients), with a per-component breakdown. The meat weight is treated as already included in the total and is never double-counted. | Partial — implemented **only through the Gemini provider**, which is instructed via a structured prompt and whose response is validated against a Pydantic schema. The application itself does not recompute or numerically verify the component arithmetic. When Gemini is unavailable and the search falls back to USDA or Open Food Facts, the result is a flat per-100 g value for the closest single match, with no component breakdown and no use of the entered weights. |
-| FR-20 | The search accepts natural-language entries including quantities in the text (e.g. "300g chicken biryani with 150g chicken"). | Partial — supported only via the Gemini provider's prompt; fallback providers treat the input as a plain search term. |
-| FR-21 | Mixed-dish results are clearly marked as estimates, because recipes and preparation methods vary. | Implemented — Gemini results carry an `estimate` flag, shown in the UI as an "~ Estimated" chip. |
+| FR-19 | Search weighed foods entered in a sentence. Scale label values by the serving weight or calculate a recipe portion from weighed ingredients and the finished batch weight. | Implemented |
+| FR-20 | Accept a food name with separate amount and unit fields. Convert servings and pieces only with a documented provider measure. | Implemented |
+| FR-21 | Display the actual source, amount, and available nutrients. Explain when no record or a partial record is available. | Implemented |
 | FR-22 | When a food cannot be found or all providers fail, the user sees a clear error message. | Implemented |
 
 ### 4.4 Meals module
@@ -102,14 +102,16 @@ Individuals who want to monitor their food intake through a simple web applicati
 
 | ID | Requirement | Status |
 | --- | --- | --- |
-| NFR-01 | **Performance** — external provider calls are time-boxed: Gemini is capped at 15 seconds (SDK timeout plus a thread-pool timeout, single attempt), USDA and Open Food Facts at 10 seconds each. A slow provider falls through to the next one rather than hanging the request. | Implemented |
+| NFR-01 | Provider calls use five-second timeouts. Timeouts fall through to the next provider. | Implemented |
 | NFR-02 | **Reliability** — failure of any external nutrition API must not crash the application; provider errors are caught and the fallback chain continues. | Implemented |
 | NFR-03 | **Security: passwords** — stored only as salted hashes via Werkzeug. | Implemented |
-| NFR-04 | **Security: secrets** — API keys (`GEMINI_API_KEY`, `USDA_API_KEY`) and `SECRET_KEY` are read from environment variables / a `.env` file that is excluded from version control. | Partial — implemented, but `SECRET_KEY` falls back to a hard-coded development default when the environment variable is missing, and the application's forms have no CSRF protection (Flask-WTF is not used). Acceptable for a course project; documented as a limitation. |
+| NFR-04 | Load `USDA_API_KEY` and `SECRET_KEY` from environment configuration. Use a persistent secret across production workers. | Implemented |
 | NFR-05 | **Maintainability** — modular programming, separation of concerns (routes / services / models / providers), consistent naming. | Implemented |
 | NFR-06 | **Usability** — clear navigation, readable information, understandable error messages, responsive layout, light/dark theme. | Implemented |
 | NFR-07 | **Compatibility** — works in commonly used modern web browsers; no server-side browser dependencies. | Implemented (manually verified only) |
-| NFR-08 | **Testing** — important application logic is covered by automated Pytest tests. | Partial — service-layer and schema tests exist and pass; the Authentication module and the HTTP routes currently have no automated tests (see `docs/testing.md`). |
+| NFR-08 | Important service, route, authentication, and persistence behavior is covered by Pytest. Staging verifies that a searched food can be saved and retrieved. | Implemented |
+| NFR-09 | A tagged release is packaged by version and commit, verified in staging, and promoted through a production approval and rolling deployment. | Workflow and tooling implemented. Production hosting and approval settings require setup. |
+| NFR-10 | Protect data with 3-2-1 backups, a 24-hour RPO, and a four-hour RTO. Verify the recovery process in restoration drills. | Snapshot and restore tools and schedule implemented. External storage and measured drills require setup. |
 
 ## 6. Main Functional Modules
 
@@ -131,9 +133,9 @@ Supporting packages and folders — `core` (configuration, extensions, shared he
 | Web framework | Flask 3.1 |
 | ORM / database | Flask-SQLAlchemy 3.1, SQLAlchemy 2.1, SQLite |
 | Authentication | Flask-Login 0.6 |
-| Nutrition providers | Google Gemini (`google-genai` SDK), USDA FoodData Central API, Open Food Facts API |
+| Nutrition providers | USDA FoodData Central API, Open Food Facts API |
 | HTTP client | `requests` |
-| Validation | Pydantic (response schema for Gemini; installed as a dependency of `google-genai`) |
+| Validation | Provider units and finite numeric checks |
 | Frontend | Jinja2 templates, Bootstrap 5.3 (CDN), custom CSS, vanilla JavaScript |
 | Configuration | `python-dotenv` (`.env` file) |
 | Testing | Pytest 9 |
@@ -143,7 +145,7 @@ Supporting packages and folders — `core` (configuration, extensions, shared he
 
 ### Included (implemented)
 
-User authentication, profiles with calculated calorie/macro goals, nutrition search with a three-provider fallback chain, mixed Desi-dish estimates via Gemini, guest nutrition search, meal logging with categories, daily summaries, weekly reports with CSS-rendered charts and insights, a dashboard, password change, data export and account deletion, and a light/dark theme.
+User authentication, profiles with calculated calorie/macro goals, database nutrition search with portion conversion, guest nutrition search, meal logging with categories, daily summaries, weekly reports with CSS-rendered charts and insights, a dashboard, password change, data export and account deletion, and a light/dark theme.
 
 ### Implemented beyond the original scope
 

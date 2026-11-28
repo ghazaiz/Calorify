@@ -1,3 +1,4 @@
+from math import isfinite
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, request, jsonify, render_template
@@ -35,6 +36,46 @@ def meal_to_dict(meal):
     }
 
 
+def _meal_input():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError("A JSON object is required")
+
+    text_fields = {"food_name": 200, "meal_type": 20, "serving_unit": 50}
+    numeric_fields = ("quantity", "calories", "protein", "carbohydrates", "fats")
+    if any(field not in data for field in (*text_fields, *numeric_fields)):
+        raise ValueError("All meal fields are required")
+
+    values = {}
+    for field, max_length in text_fields.items():
+        value = data[field]
+        if not isinstance(value, str) or not 0 < len(value.strip()) <= max_length:
+            raise ValueError(f"{field} must contain 1 to {max_length} characters")
+        values[field] = value.strip()
+
+    for field in numeric_fields:
+        value = data[field]
+        if isinstance(value, bool):
+            raise ValueError("Quantity and nutrition values must be numbers")
+        try:
+            values[field] = float(value)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("Quantity and nutrition values must be numbers") from None
+        if not isfinite(values[field]):
+            raise ValueError("Quantity and nutrition values must be finite")
+
+    if values["quantity"] <= 0 or any(values[field] < 0 for field in numeric_fields[1:]):
+        raise ValueError("Quantity must be positive and nutrition values cannot be negative")
+
+    raw_date = data.get("date")
+    if raw_date is not None and raw_date != "":
+        try:
+            values["meal_date"] = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            raise ValueError("Date must be in YYYY-MM-DD format") from None
+    return values
+
+
 @meals_bp.route("/", methods=["GET"])
 @login_required
 def get_meals():
@@ -60,6 +101,7 @@ def get_meals():
 
         return render_template(
             "meals/meals.html",
+            today_iso=today.isoformat(),
             meals=meals_view
         )
 
@@ -71,54 +113,11 @@ def get_meals():
 @meals_bp.route("/", methods=["POST"])
 @login_required
 def create_meal():
-    data = request.get_json()
-
-    required_fields = [
-        "food_name",
-        "meal_type",
-        "quantity",
-        "serving_unit",
-        "calories",
-        "protein",
-        "carbohydrates",
-        "fats"
-    ]
-
-    if not all(field in data for field in required_fields):
-        return jsonify({
-            "message": "All meal fields are required"
-        }), 400
-
-    meal_date = None
-
-    if data.get("date"):
-        try:
-            meal_date = datetime.strptime(
-                data["date"],
-                "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return jsonify({
-                "message": "Date must be in YYYY-MM-DD format"
-            }), 400
-
     try:
-        meal = add_meal(
-            current_user.user_id,
-            data["food_name"],
-            data["meal_type"],
-            data["quantity"],
-            data["serving_unit"],
-            data["calories"],
-            data["protein"],
-            data["carbohydrates"],
-            data["fats"],
-            meal_date
-        )
-    except InvalidMealTypeError as error:
-        return jsonify({
-            "message": str(error)
-        }), 400
+        values = _meal_input()
+        meal = add_meal(current_user.user_id, **values)
+    except (ValueError, InvalidMealTypeError) as error:
+        return jsonify({"message": str(error)}), 400
 
     return jsonify({
         "message": "Meal added successfully",
@@ -139,54 +138,10 @@ def edit_meal(meal_id):
             "message": "Meal not found"
         }), 404
 
-    data = request.get_json()
-
-    required_fields = [
-        "food_name",
-        "meal_type",
-        "quantity",
-        "serving_unit",
-        "calories",
-        "protein",
-        "carbohydrates",
-        "fats"
-    ]
-
-    if not all(field in data for field in required_fields):
-        return jsonify({
-            "message": "All meal fields are required"
-        }), 400
-
-    meal_date = None
-
-    if data.get("date"):
-        try:
-            meal_date = datetime.strptime(
-                data["date"],
-                "%Y-%m-%d"
-            ).date()
-        except ValueError:
-            return jsonify({
-                "message": "Date must be in YYYY-MM-DD format"
-            }), 400
-
     try:
-        updated_meal = update_meal(
-            meal,
-            data["food_name"],
-            data["meal_type"],
-            data["quantity"],
-            data["serving_unit"],
-            data["calories"],
-            data["protein"],
-            data["carbohydrates"],
-            data["fats"],
-            meal_date
-        )
-    except InvalidMealTypeError as error:
-        return jsonify({
-            "message": str(error)
-        }), 400
+        updated_meal = update_meal(meal, **_meal_input())
+    except (ValueError, InvalidMealTypeError) as error:
+        return jsonify({"message": str(error)}), 400
 
     return jsonify({
         "message": "Meal updated successfully",

@@ -28,4 +28,6 @@ Thumbs.db
 
 # Database files
 calorify.db
+calorify.db-*
+dist/
 

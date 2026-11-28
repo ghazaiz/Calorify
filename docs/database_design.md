@@ -35,10 +35,7 @@ erDiagram
         float weight_kg
         string activity_level
         string goal
-        int daily_calorie_target
-        float protein_target
-        float carbohydrates_target
-        float fats_target
+        float weekly_loss
     }
     MEALS {
         int meal_id PK
@@ -86,12 +83,9 @@ erDiagram
 | `weight_kg` | Float | Nullable | Weight in kilograms |
 | `activity_level` | String(50) | Nullable | `sedentary`, `light`, `moderate` or `active` |
 | `goal` | String(50) | Nullable | `lose`, `maintain` or `gain` |
-| `daily_calorie_target` | Integer | Nullable | Calculated daily calorie goal (kcal) |
-| `protein_target` | Float | Nullable | Calculated daily protein goal (g) |
-| `carbohydrates_target` | Float | Nullable | Calculated daily carbohydrate goal (g) |
-| `fats_target` | Float | Nullable | Calculated daily fat goal (g) |
+| `weekly_loss` | Float | Nullable | Selected weight-loss pace in kg/week |
 
-The descriptive columns are nullable at the schema level; required-field validation happens in the profile routes before a row is created or updated. The three target columns and `daily_calorie_target` are always set by the service layer (`create_profile` / `update_profile`), never by user input.
+The descriptive columns are nullable at the schema level. Profile routes validate required fields before saving. The application computes calorie and macro targets on read using the stored profile inputs.
 
 ### 3.3 `meals` — logged meals
 
@@ -114,32 +108,39 @@ Each meal stores a **snapshot** of its nutrition values. Historical records ther
 
 ## 4. Keys and Integrity
 
-* Primary keys: `users.user_id`, `profiles.profile_id`, `meals.meal_id` (all auto-incrementing integers).
+* Integer primary keys are `users.user_id`, `profiles.profile_id`, and `meals.meal_id`. SQLite allocates user IDs with `AUTOINCREMENT` on new databases and on the cleaned sample database.
 * Foreign keys: `profiles.user_id` and `meals.user_id` both reference `users.user_id`.
 * Uniqueness: `users.email` and `profiles.user_id`.
+* The application enables SQLite foreign-key enforcement on every connection.
 * **No cascade rules are configured on the foreign keys.** Account deletion (`POST /profile/delete`) therefore deletes the user's meals and profile explicitly before deleting the `users` row, all in one route-level transaction.
 * Data isolation is enforced in queries: every profile, meal and report query filters by the logged-in `user_id`.
 
-## 5. How Data Is Stored
+## 5. Normalization
+
+| Form | How the schema satisfies it |
+| --- | --- |
+| 1NF | Columns store single values. Each meal has its own row with one owner, quantity, unit, and set of nutrition totals. |
+| 2NF | Each candidate key has one column, so there are no partial-key dependencies. |
+| 3NF | The profile stores the inputs to its targets. Calories are calculated from those inputs and macros are calculated from the calorie target. Meal totals are snapshots of a specific logged portion, so the food label alone cannot determine them. |
+| 4NF | The independent collection of meals lives in its own table. A profile has a single row per user, and no table combines independent repeating facts. |
+| 5NF | Under the application's business rules, the remaining row facts depend on simple candidate keys. There are no additional join dependencies that require decomposing these tables. [Date and Fagin on simple keys and higher normal forms](https://research.ibm.com/publications/simple-conditions-for-guaranteeing-higher-normal-forms-in-relational-databases). |
+
+## 6. How Data Is Stored
 
 * SQLite stores everything in the single `calorify.db` file; Flask-SQLAlchemy manages connections and sessions through the shared `db` object in `app/core/extensions.py`.
 * Writes go through `db.session` with an explicit `commit()` in each service function.
 * Dates are stored as `DATE` (meal day) and `DATETIME` (timestamps, UTC); SQLAlchemy converts them to Python `date`/`datetime` objects.
 
-## 6. Database Initialization
+## 7. Database Initialization
 
-`create_app()` does **not** create tables automatically. The tables are created once from the models with:
+`create_app()` does **not** modify tables automatically. Create or upgrade the configured database with:
 
 ```powershell
-python -c "from app import create_app; from app.core.extensions import db; app = create_app(); ctx = app.app_context(); ctx.push(); db.create_all()"
+python -m flask --app main init-db
 ```
 
-(or the equivalent `db.create_all()` inside `flask shell`). The repository contains a ready `calorify.db` in development, so this step is only needed for a fresh setup.
+Initialization upgrades older profiles by adding the weekly loss input if needed and dropping the stored target columns. SQLite 3.35 or later is required to drop legacy columns. The test suite uses a separate temporary database for each test.
 
-The **test suite** never touches the real database: `tests/conftest.py` repoints `Config.SQLALCHEMY_DATABASE_URI` at a throwaway file in the system temp directory and recreates all tables (`drop_all` + `create_all`) before every test.
-
-There is no migration tool (e.g. Alembic / Flask-Migrate); schema changes require recreating the database file. This is acceptable at the current project scale and is a known limitation.
-
-## 7. Scope
+## 8. Scope
 
 The database intentionally contains only these three tables. A food catalogue table is not maintained because nutrition data comes from external providers at search time, and the dashboard's water tracker is stored only in the browser (`localStorage`), not in the database.

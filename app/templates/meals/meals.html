@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
 {% block navigation %}{% endblock %}
 {% block main_class %}app-page-shell{% endblock %}
 {% block title %}My meals | Calorify{% endblock %}
@@ -6,17 +7,16 @@
 <div class="app-page">
     <div class="page-heading">
         <div><p class="eyebrow">{{ meals|length }} SAVED</p><h1>My Meals</h1></div>
-        <button class="primary-button" type="button" data-open-meal><i class="bi bi-plus-lg" aria-hidden="true"></i> New meal</button>
+        <button class="primary-button" type="button" data-open-meal>{{ icon('plus') }} New meal</button>
     </div>
 
+    <p class="meal-status" role="status" data-meals-status>{% if request.args.get('meal_saved') == '1' %}Meal saved.{% elif request.args.get('meal_deleted') == '1' %}Meal deleted.{% endif %}</p>
     <div class="meal-toolbar">
         <input placeholder="Search your meals" aria-label="Search your meals">
         <div class="filter-pills" data-filter-pills>
-            <button type="button" class="active" data-filter="all">All</button>
-            <button type="button" data-filter="breakfast">Breakfast</button>
-            <button type="button" data-filter="lunch">Lunch</button>
-            <button type="button" data-filter="dinner">Dinner</button>
-            <button type="button" data-filter="snack">Snacks</button>
+            {% for value, label in [('all', 'All'), ('breakfast', 'Breakfast'), ('lunch', 'Lunch'), ('dinner', 'Dinner'), ('snack', 'Snacks')] %}
+            <button type="button" data-filter="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}"{% if value == 'all' %} class="active"{% endif %}>{{ label }}</button>
+            {% endfor %}
         </div>
     </div>
 
@@ -26,36 +26,26 @@
         {% for meal in meals %}
         <article class="saved-meal" data-meal-type="{{ meal.meal_type }}">
             <div class="saved-meal-top">
-                <span class="meal-food-icon"></span>
+                <span class="meal-food-icon">{{ icon('meal') }}</span>
                 <small>{{ meal.meal_type|upper }}</small>
-                <button type="button" class="meal-icon-btn" data-edit-meal='{{ meal|tojson }}' title="Edit meal" aria-label="Edit meal"><i class="bi bi-pencil" aria-hidden="true"></i></button>
-                <button type="button" class="meal-icon-btn danger" data-delete-meal="{{ meal.meal_id }}" title="Delete meal" aria-label="Delete meal"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                <button type="button" class="meal-icon-btn" data-edit-meal='{{ meal|tojson }}' title="Edit meal" aria-label="Edit meal">{{ icon('edit') }}</button>
+                <button type="button" class="meal-icon-btn danger" data-delete-meal="{{ meal.meal_id }}" title="Delete meal" aria-label="Delete meal">{{ icon('trash') }}</button>
             </div>
             <h2>{{ meal.food_name }}</h2>
-            <small class="meal-date">{{ meal.date_display|default(meal.date) }}</small>
+            <small class="meal-date">{{ meal.date_display|default(meal.date) }} ? {{ meal.quantity|round(2) }} {{ meal.serving_unit }}</small>
             <strong class="meal-calories">{{ meal.calories|round|int }} <small>kcal</small></strong>
             <div class="macro-tags"><span><i class="protein"></i>P {{ meal.protein|round|int }}g</span><span><i class="carbs"></i>C {{ meal.carbohydrates|round|int }}g</span><span><i class="fat"></i>F {{ meal.fats|round|int }}g</span></div>
-            <button class="add-today" type="button" data-add-today='{{ meal|tojson }}'><i class="bi bi-plus-lg" aria-hidden="true"></i> Add to today</button>
+            <button class="add-today" type="button" data-add-today='{{ meal|tojson }}'>{{ icon('plus') }} Add to today</button>
         </article>
         {% endfor %}
         </div>
+        <p class="empty-state" data-meals-filter-empty hidden>No meals match these filters.</p>
         {% else %}
-        <div class="empty-state"><span class="empty-icon"><i class="bi bi-journal-text" aria-hidden="true"></i></span><h2>Your journal is empty</h2><p>Log your first meal to start tracking your nutrition.</p><button class="primary-button" type="button" data-open-meal>Log your first meal</button></div>
+        <div class="empty-state"><span class="empty-icon">{{ icon('journal') }}</span><h2>Your journal is empty</h2><p>Log your first meal to start tracking your nutrition.</p><button class="primary-button" type="button" data-open-meal>Log your first meal</button></div>
         {% endif %}
     </section>
 </div>
 {% include "_sidebar.html" %}
 
-<div class="meal-modal" data-meal-modal hidden>
-    <form class="meal-dialog" data-meal-form>
-        <button class="modal-close" type="button" data-close-meal aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-        <h2 data-meal-dialog-title>Log a meal</h2><p>Add the nutrition details for your meal.</p>
-        <label>Food name<input name="food_name" required placeholder="e.g. Chicken biryani"></label>
-        <div class="form-row"><label>Meal type<select name="meal_type"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option></select></label><label>Quantity<input name="quantity" type="number" min="0.1" step="0.1" value="1" required></label></div>
-        <label>Serving unit<input name="serving_unit" value="serving" required></label>
-        <div class="form-row"><label>Calories<input name="calories" type="number" min="0" required></label><label>Protein (g)<input name="protein" type="number" min="0" step="0.1" value="0" required></label></div>
-        <div class="form-row"><label>Carbs (g)<input name="carbohydrates" type="number" min="0" step="0.1" value="0" required></label><label>Fat (g)<input name="fats" type="number" min="0" step="0.1" value="0" required></label></div>
-        <p class="form-error" data-meal-error></p><button class="primary-button modal-submit" type="submit">Save meal</button>
-    </form>
-</div>
+{% include "meals/_dialog.html" %}
 {% endblock %}

@@ -185,7 +185,29 @@ def score_candidate(query, candidate_name):
         ):
             prefix_bonus = 0.15
 
-    return coverage - extra_penalty + (0.1 * similarity) + prefix_bonus
+    # Strongly favor a literal base-food match. For example, "Egg"
+    # should beat "Egg sandwich" even though both names contain egg.
+    normalized_query = " ".join(sorted(query_tokens))
+    candidate_base = " ".join(
+        ordered_candidate_tokens[:1]
+    )
+    exact_base_bonus = (
+        0.20
+        if (
+            candidate_base
+            and candidate_base == normalized_query
+            and not significant_extras
+        )
+        else 0.0
+    )
+
+    return (
+        coverage
+        - extra_penalty
+        + (0.1 * similarity)
+        + prefix_bonus
+        + exact_base_bonus
+    )
 
 
 def best_match(query, candidates, get_name, get_bonus=None,
@@ -215,3 +237,36 @@ def best_match(query, candidates, get_name, get_bonus=None,
             best_score = score
 
     return best_candidate
+
+
+# Explicit preparation words must match because cooking changes values per gram.
+PREPARATIONS = frozenset({
+    "raw", "cooked", "uncooked", "boiled", "poached", "scrambled",
+    "fried", "baked", "roasted", "grilled", "steamed", "dry", "dried",
+})
+LABEL_WORDS = frozenset({"pack", "premium", "milkfat"})
+VARIANTS = PREPARATIONS | frozenset({
+    "brown", "white", "skim", "whole", "sweetened", "unsweetened",
+    "salted", "unsalted", "skinless", "boneless",
+})
+DISALLOW_UNREQUESTED = frozenset({
+    "fried", "scrambled", "poached", "baked", "sweetened", "salted",
+})
+
+
+def compatible_food(query, name):
+    requested = tokenize(query)
+    offered = tokenize(name)
+    core = requested - NEUTRAL_DESCRIPTORS
+    if (requested & VARIANTS) - offered:
+        return False
+    if len(core) == 1 and (offered & DISALLOW_UNREQUESTED) - requested:
+        return False
+    if any(not any(_tokens_match(word, item) for item in offered) for word in core):
+        return False
+
+    extras = offered - NEUTRAL_DESCRIPTORS - LABEL_WORDS
+    return all(
+        token.isdigit() or any(_tokens_match(word, token) for word in requested)
+        for token in extras
+    )

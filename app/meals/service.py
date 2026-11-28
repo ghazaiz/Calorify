@@ -49,10 +49,11 @@ def add_meal(
     return meal
 
 
-def get_user_meals(user_id):
-    return Meal.query.filter_by(
-        user_id=user_id
-    ).order_by(
+def get_user_meals(user_id, meal_date=None):
+    query = Meal.query.filter_by(user_id=user_id)
+    if meal_date is not None:
+        query = query.filter_by(date=meal_date)
+    return query.order_by(
         Meal.date.desc(),
         Meal.created_at.desc()
     ).all()

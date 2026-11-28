@@ -1,6 +1,6 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
-from flask import Blueprint, jsonify, request, render_template, redirect
+from flask import Blueprint, jsonify, request, render_template
 from flask_login import login_required, current_user
 
 from app.core.http import wants_json
@@ -28,8 +28,6 @@ def daily_report():
     selected_date = None
 
     if report_date:
-        from datetime import date
-
         try:
             selected_date = date.fromisoformat(report_date)
         except ValueError:
@@ -47,17 +45,17 @@ def daily_report():
 
 def build_weekly_stats(report, previous_report, profile):
     """Compute the stats and insights shown on the weekly report page."""
-    calorie_goal = profile.daily_calorie_target if profile else 0
+    calorie_goal = (profile.daily_calorie_target or 0) if profile else 0
     protein_goal = profile.protein_target if profile else 0
 
-    logged_days = [day for day in report if day["calories"] > 0]
+    logged_days = [day for day in report if day["meal_count"] > 0]
 
-    avg_intake = round(
+    avg_intake = (
         sum(day["calories"] for day in logged_days) / len(logged_days)
     ) if logged_days else 0
 
     previous_logged = [
-        day for day in previous_report if day["calories"] > 0
+        day for day in previous_report if day["meal_count"] > 0
     ]
     previous_avg = (
         sum(day["calories"] for day in previous_logged) / len(previous_logged)
@@ -112,8 +110,7 @@ def build_weekly_stats(report, previous_report, profile):
         if protein_gap > 5:
             insights.append({
                 "icon": "info",
-                "text": f"Protein averaged {protein_gap} g under your goal. "
-                        "A yogurt or egg snack would close the gap."
+                "text": f"Protein averaged {protein_gap} g under your goal."
             })
         elif protein_gap <= 0:
             insights.append({
@@ -132,6 +129,9 @@ def build_weekly_stats(report, previous_report, profile):
                     f"{len(over_days)} day{'s' if len(over_days) > 1 else ''}."
         })
 
+    if logged_days and not calorie_goal:
+        insights.append({"icon": "info", "text": "Set a profile goal to compare your intake to a target."})
+
     if not logged_days:
         insights.append({
             "icon": "info",
@@ -140,13 +140,13 @@ def build_weekly_stats(report, previous_report, profile):
         })
 
     return {
-        "avg_intake": avg_intake,
+        "avg_intake": round(avg_intake),
         "intake_change": intake_change,
         "on_target_days": len(on_target_days),
         "logged_days": len(logged_days),
         "avg_protein": avg_protein,
         "avg_carbohydrates": avg_carbohydrates,
-        "protein_gap": round(protein_goal - avg_protein) if protein_goal else None,
+        "protein_gap": round(protein_goal - avg_protein) if protein_goal and logged_days else None,
         "macro_split": macro_split,
         "insights": insights
     }
@@ -155,11 +155,10 @@ def build_weekly_stats(report, previous_report, profile):
 @reports_bp.route("/weekly", methods=["GET"])
 @login_required
 def weekly_report():
-    report = get_weekly_report(
-        current_user.user_id
-    )
+    json_requested = wants_json()
+    report = get_weekly_report(current_user.user_id, include_counts=not json_requested)
 
-    if not wants_json():
+    if not json_requested:
         profile = Profile.query.filter_by(
             user_id=current_user.user_id
         ).first()
@@ -173,7 +172,8 @@ def weekly_report():
 
         previous_report = get_weekly_report(
             current_user.user_id,
-            start_date - timedelta(days=1)
+            start_date - timedelta(days=1),
+            include_counts=True,
         )
 
         if start_date.month == end_date.month:
@@ -191,7 +191,7 @@ def weekly_report():
             "reports/reports.html",
             report=report,
             stats=build_weekly_stats(report, previous_report, profile),
-            calorie_goal=profile.daily_calorie_target if profile else 0,
+            calorie_goal=(profile.daily_calorie_target or 0) if profile else 0,
             range_display=range_display,
             today_iso=date.today().isoformat()
         )
@@ -208,34 +208,23 @@ def dashboard():
         user_id=current_user.user_id
     ).first()
 
-    if profile is None:
-        return redirect("/profile/")
+    today_date = date.today()
+    today = get_daily_report(current_user.user_id, today_date)
 
-    today = get_daily_report(
-        current_user.user_id
-    )
-
-    calorie_goal = profile.daily_calorie_target
-    protein_goal = profile.protein_target
-    carbohydrates_goal = profile.carbohydrates_target
-    fats_goal = profile.fats_target
+    calorie_goal = (profile.daily_calorie_target or 0) if profile else 0
+    protein_goal = (profile.protein_target or 0) if profile else 0
+    carbohydrates_goal = (profile.carbohydrates_target or 0) if profile else 0
+    fats_goal = (profile.fats_target or 0) if profile else 0
 
     return render_template(
         "dashboard/dashboard.html",
         today=today,
         bmi=get_bmi_summary(profile),
-        today_display=(
-            datetime.strptime(today["date"], "%Y-%m-%d").strftime("%A")
-            + f", {datetime.strptime(today['date'], '%Y-%m-%d').day} "
-            + datetime.strptime(today["date"], "%Y-%m-%d").strftime("%B")
-        ),
+        today_display=f"{today_date:%A}, {today_date.day} {today_date:%B}",
         calorie_goal=calorie_goal,
         protein_goal=protein_goal,
         carbohydrates_goal=carbohydrates_goal,
         fats_goal=fats_goal,
-        week=get_weekly_report(current_user.user_id),
-        meals=[
-            meal for meal in get_user_meals(current_user.user_id)
-            if meal.date.isoformat() == today["date"]
-        ]
+        week=get_weekly_report(current_user.user_id, today_date, include_counts=True),
+        meals=get_user_meals(current_user.user_id, today_date),
     )

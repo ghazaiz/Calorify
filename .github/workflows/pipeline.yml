@@ -1,42 +1,130 @@
+name: Calorify CI/CD
 
-name: Calorify CI/CD Pipeline
-
-on:
-  push: 
-    branches: main  
+"on":
+  push:
+    branches: ["**"]
+    tags: ["v*"]
   pull_request:
-    branches: main
+    branches: [Development, main]
+
+permissions:
+  contents: read
 
 jobs:
   test:
-    name: CI - Run Tests
+    name: CI - Python 3.11 tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -c "from main import app; assert app"
+      - run: python -m pytest -q
+      - run: bash -n deployment/rollout.sh && bash -n deployment/backup.sh
 
-      - name: Install dependencies
+  package:
+    name: Build versioned source archive
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/Development' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run Tests
-        run: pytest -v
+          test "$GITHUB_REF_NAME" = "v$(python -c 'from runpy import run_path; print(run_path("app/version.py")["APP_VERSION"])')"
+          git merge-base --is-ancestor HEAD refs/remotes/origin/main
+      - run: python deployment/release.py build dist --require-clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calorify-release
+          path: dist/*
+          if-no-files-found: error
 
   staging:
-    name: CD - Staging
+    name: Deploy and verify isolated staging
+    needs: package
     runs-on: ubuntu-latest
-    needs: test
-
+    environment: staging
     steps:
-      - name: Prepare Staging Environment
-        run: echo "Preparing Calorify staging environment..."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: calorify-release
+          path: dist
+      - name: Start packaged application and test recovery
+        run: |
+          set -euo pipefail
+          archives=(dist/*.zip)
+          test "${#archives[@]}" -eq 1
+          stage="$RUNNER_TEMP/calorify-staging"
+          read -r version commit < <(python deployment/release.py unpack "${archives[0]}" "$stage" --require-clean)
+          test "$commit" = "$GITHUB_SHA"
+          cd "$stage"
+          python -m pip install -r requirements.txt
+          export APP_ENV=staging DATABASE_URL="sqlite:///$RUNNER_TEMP/staging.db"
+          export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+          python -m flask --app main init-db
+          python -m gunicorn --bind 127.0.0.1:8081 --access-logfile - main:app > gunicorn.log 2>&1 &
+          worker=$!
+          trap 'kill "$worker" 2>/dev/null || true; cat gunicorn.log' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8081/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          python deployment/smoke.py http://127.0.0.1:8081 --version "$version"
+          python deployment/database_backup.py snapshot "$RUNNER_TEMP/staging.db" "$RUNNER_TEMP/staging-backup.db"
+          python deployment/database_backup.py restore "$RUNNER_TEMP/staging-backup.db" "$RUNNER_TEMP/staging-restored.db"
+          python deployment/database_backup.py verify "$RUNNER_TEMP/staging-restored.db"
 
-      - name: Deploy to Staging (Demo)
-        run: echo "Calorify staging deployment simulated successfully!"
+  production:
+    name: Approved rolling deployment
+    needs: staging
+    if: startsWith(github.ref, 'refs/tags/v') && vars.CALORIFY_PRODUCTION_ENABLED == 'true'
+    runs-on: [self-hosted, linux, calorify-production]
+    environment: production
+    concurrency:
+      group: calorify-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: calorify-release
+          path: ${{ runner.temp }}/calorify-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Roll out the staged archive
+        env:
+          ARCHIVE_DIR: ${{ runner.temp }}/calorify-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          archives=("$ARCHIVE_DIR"/*.zip)
+          test "${#archives[@]}" -eq 1
+          bash /srv/calorify/ops/rollout.sh deploy "${archives[0]}"
+
+  publish:
+    name: Publish approved GitHub release
+    needs: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: calorify-release
+          path: dist
+      - name: Publish the same archive and its checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

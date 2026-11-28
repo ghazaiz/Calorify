@@ -9,7 +9,6 @@ from app.nutrition.matching import (
     normalize_query,
     score_candidate
 )
-from app.nutrition.providers.gemini import NutritionResult
 from app.nutrition.providers.open_food_facts import (
     search_food as search_off_food
 )
@@ -17,23 +16,11 @@ from app.nutrition.providers.usda import search_food as search_usda_food
 from app.nutrition.service import search_food
 
 
-MIXED_DISH_RESPONSE = {
-    "name": "Chicken Biryani",
-    "quantity_grams": 300.0,
-    "meat_weight_grams": 150.0,
-    "calories": 596.0,
-    "protein": 44.3,
-    "carbohydrates": 41.6,
-    "fats": 27.1,
-    "estimate": True,
-    "components": [
-        {"name": "Chicken (cooked)", "grams": 150.0, "calories": 285.0,
-         "protein": 40.0, "carbohydrates": 0.0, "fats": 13.5},
-        {"name": "Cooked basmati rice", "grams": 130.0, "calories": 169.0,
-         "protein": 3.5, "carbohydrates": 41.0, "fats": 0.4},
-        {"name": "Oil, fried onion & spices", "grams": 20.0, "calories": 142.0,
-         "protein": 0.8, "carbohydrates": 0.6, "fats": 13.2},
-    ],
+RICE_RECORD = {
+    "name": "Rice, cooked", "serving_size": 100, "serving_unit": "g",
+    "calories": 130, "protein": 2.7, "carbohydrates": 28.2, "fats": 0.3,
+    "fiber": 0.4, "sugars": 0, "sodium_mg": 1,
+    "portions": {"serving": 150},
 }
 
 
@@ -201,6 +188,7 @@ def test_usda_still_returns_prepared_dish_when_asked(monkeypatch):
     assert food is not None
     assert food["name"] == "Egg custard, baked"
     assert food["calories"] == 112
+    assert food.get("fats") is None
 
 
 def test_usda_prefers_boiled_eggs(monkeypatch):
@@ -317,107 +305,61 @@ def _raise_not_configured(*args, **kwargs):
     raise ProviderNotConfiguredError("provider is not configured")
 
 
-def test_search_prefers_gemini_and_passes_quantities(monkeypatch):
-    captured = {}
+def test_search_prefers_usda_and_scales_each_nutrient(monkeypatch):
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lambda query: RICE_RECORD)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: pytest.fail("Unexpected fallback"))
 
-    def fake_gemini(food_name, quantity_grams=None, meat_weight_grams=None):
-        captured["food_name"] = food_name
-        captured["quantity_grams"] = quantity_grams
-        captured["meat_weight_grams"] = meat_weight_grams
-        return MIXED_DISH_RESPONSE
-
-    monkeypatch.setattr(
-        "app.nutrition.service.get_nutrition_from_gemini", fake_gemini
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_usda_food", _raise_not_configured
-    )
-
-    result = search_food("chicken biryani", 300, 150)
-
-    assert result["source"] == "gemini"
-    assert result["food"]["name"] == "Chicken Biryani"
-    assert result["food"]["meat_weight_grams"] == 150
-    assert captured == {
-        "food_name": "chicken biryani",
-        "quantity_grams": 300,
-        "meat_weight_grams": 150,
-    }
-
-
-def test_search_falls_back_to_usda_when_gemini_fails(monkeypatch):
-    monkeypatch.setattr(
-        "app.nutrition.service.get_nutrition_from_gemini",
-        _raise_not_configured
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_usda_food",
-        lambda food_name: {"name": "Egg, whole, raw", "calories": 143}
-    )
-
-    result = search_food("eggs")
-
+    result = search_food("cooked rice", 2, unit="serving")
     assert result["source"] == "usda"
-    assert result["food"]["name"] == "Egg, whole, raw"
+    assert result["food"]["calories"] == 390
+    assert result["food"]["protein"] == 8.1
+    assert result["food"]["carbohydrates"] == 84.6
+    assert result["food"]["fats"] == 0.9
+    assert result["food"]["fiber"] == 1.2
+    assert result["food"]["sodium_mg"] == 3
+    assert result["food"]["quantity_grams"] == 300
+    assert RICE_RECORD["calories"] == 130
 
 
-def test_search_falls_through_irrelevant_usda_to_off(monkeypatch):
-    # USDA finding nothing relevant must not block a better match from
-    # Open Food Facts.
-    monkeypatch.setattr(
-        "app.nutrition.service.get_nutrition_from_gemini",
-        _raise_not_configured
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_usda_food",
-        lambda food_name: None
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_off_food",
-        lambda food_name: {"name": "Fresh eggs", "calories": 140}
-    )
+@pytest.mark.parametrize("failure", [None, TimeoutError("provider timed out")])
+def test_search_falls_through_to_label_data(monkeypatch, failure):
+    def lookup(query):
+        if failure:
+            raise failure
+        return None
 
-    result = search_food("eggs")
-
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lookup)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: RICE_RECORD)
+    result = search_food("rice", 250)
     assert result["source"] == "open_food_facts"
-    assert result["food"]["name"] == "Fresh eggs"
+    assert result["food"]["calories"] == 325
 
 
-def test_search_survives_all_providers_failing(monkeypatch):
-    monkeypatch.setattr(
-        "app.nutrition.service.get_nutrition_from_gemini",
-        _raise_not_configured
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_usda_food", _raise_not_configured
-    )
-    monkeypatch.setattr(
-        "app.nutrition.service.search_off_food", _raise_not_configured
-    )
+def test_search_prefers_complete_fallback_and_never_fills_missing_macros(monkeypatch):
+    incomplete = {**RICE_RECORD, "protein": None, "fats": None}
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lambda query: incomplete)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: RICE_RECORD)
+    assert search_food("rice")["source"] == "open_food_facts"
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: None)
+    result = search_food("rice")
+    assert result["food"]["protein"] is None
+    assert result["food"]["fats"] is None
+    assert not result["food"]["complete"]
 
+
+def test_search_returns_none_when_no_sources_are_configured(monkeypatch):
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", _raise_not_configured)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", _raise_not_configured)
     assert search_food("eggs") is None
 
 
 def test_search_normalizes_the_query(monkeypatch):
-    received = {}
+    def lookup(query):
+        assert query == "Boiled Eggs"
+        return RICE_RECORD
 
-    monkeypatch.setattr(
-        "app.nutrition.service.get_nutrition_from_gemini",
-        _raise_not_configured
-    )
-
-    def fake_usda(food_name):
-        received["query"] = food_name
-        return {"name": "Egg, whole, cooked, hard-boiled", "calories": 155}
-
-    monkeypatch.setattr(
-        "app.nutrition.service.search_usda_food", fake_usda
-    )
-
-    result = search_food("  Boiled   Eggs ")
-
-    assert received["query"] == "Boiled Eggs"
-    assert result["source"] == "usda"
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lookup)
+    assert search_food("  Boiled   Eggs ")["source"] == "usda"
 
 
 def test_search_rejects_empty_queries():
@@ -492,68 +434,249 @@ def test_search_route_rejects_invalid_quantities():
     assert response.status_code == 400
 
 
-# ---------------------------------------------------------------------------
-# Mixed dishes (Gemini schema)
-# ---------------------------------------------------------------------------
+def test_app_exposes_semantic_version():
+    from app import create_app
+    from app.version import APP_MAJOR, APP_MINOR, APP_PATCH, APP_VERSION
 
-def test_mixed_dish_schema_accepts_components():
-    result = NutritionResult.model_validate(MIXED_DISH_RESPONSE)
+    app = create_app()
+    assert app.config["APP_VERSION"] == APP_VERSION
+    assert APP_VERSION == f"{APP_MAJOR}.{APP_MINOR}.{APP_PATCH}"
 
-    assert result.estimate is True
-    assert result.meat_weight_grams == 150
-    assert len(result.components) == 3
-
-
-def test_mixed_dish_components_do_not_double_count():
-    result = NutritionResult.model_validate(MIXED_DISH_RESPONSE)
-
-    component_grams = sum(c.grams for c in result.components)
-    component_calories = sum(c.calories for c in result.components)
-
-    # The meat is part of the total, so component grams and calories
-    # must add up to the whole dish - not total + meat.
-    assert component_grams == result.quantity_grams
-    assert abs(component_calories - result.calories) < 1
-    assert result.meat_weight_grams < result.quantity_grams
-
-
-def test_simple_food_without_components_is_valid():
-    result = NutritionResult.model_validate({
-        "name": "Banana, raw",
-        "quantity_grams": 118,
-        "meat_weight_grams": None,
-        "calories": 105,
-        "protein": 1.3,
-        "carbohydrates": 27,
-        "fats": 0.4,
-        "estimate": False,
-    })
-
-    assert result.components is None
-
-
-# ---------------------------------------------------------------------------
-# Live integration tests (opt-in)
-# ---------------------------------------------------------------------------
 
 @pytest.mark.skipif(
-    os.getenv("RUN_INTEGRATION_TESTS") != "1",
-    reason="Live nutrition providers require RUN_INTEGRATION_TESTS=1"
+    os.getenv("RUN_INTEGRATION_TESTS") != "1" or not os.getenv("USDA_API_KEY"),
+    reason="Live USDA test requires RUN_INTEGRATION_TESTS=1 and a USDA API key",
 )
-def test_search_food():
-    result = search_food("apple")
-
-    assert result is not None
-    assert "source" in result
-    assert "food" in result
+def test_live_usda():
+    food = search_usda_food("banana")
+    assert food and "banana" in food["name"].lower()
+    assert 60 < food["calories"] < 140
 
 
 @pytest.mark.skipif(
     os.getenv("RUN_INTEGRATION_TESTS") != "1",
-    reason="Live nutrition providers require RUN_INTEGRATION_TESTS=1"
+    reason="Live Open Food Facts test requires RUN_INTEGRATION_TESTS=1",
 )
-def test_search_mixed_dish():
-    result = search_food("chicken biryani", 300, 150)
+def test_live_open_food_facts():
+    food = search_off_food("nutella")
+    assert food and food["calories"] > 0
 
-    assert result is not None
-    assert result["food"]["calories"] > 0
+
+def test_usda_uses_nutrient_ids_without_counting_duplicate_energy(monkeypatch):
+    _mock_usda(monkeypatch, {"foods": [{
+        "description": "Rice, cooked", "fdcId": 12345,
+        "foodNutrients": [
+            {"nutrientId": 1062, "unitName": "kJ", "value": 600},
+            {"nutrientId": 2047, "unitName": "KCAL", "value": 125},
+            {"nutrientId": 2048, "unitName": "KCAL", "value": 130},
+            {"nutrientId": 1003, "unitName": "G", "value": 2.7},
+            {"nutrientId": 1005, "unitName": "G", "value": 28.2},
+            {"nutrientId": 1004, "unitName": "G", "value": 0.3},
+            {"nutrientName": "Sugars, Total", "unitName": "G", "value": 9},
+            {"nutrientId": 1093, "unitName": "MG", "value": 1},
+        ],
+    }]})
+    food = search_usda_food("cooked rice")
+    assert food["calories"] == 130
+    assert food["carbohydrates"] == 28.2
+    assert food["sodium_mg"] == 1
+
+
+def test_usda_rejects_raw_or_unrelated_entries_for_boiled_eggs(monkeypatch):
+    _mock_usda(monkeypatch, EGGS_USDA_PAYLOAD)
+    assert search_usda_food("boiled eggs") is None
+
+
+def test_off_keeps_liquid_basis_and_converts_label_servings(monkeypatch):
+    _mock_off(monkeypatch, {"products": [{
+        "product_name": "Orange juice", "product_quantity_unit": "ml",
+        "serving_quantity": 200, "serving_quantity_unit": "ml",
+        "nutriments": {
+            "energy_100g": 209.2, "proteins_100g": 0,
+            "carbohydrates_100g": 12, "fat_100g": 0, "sodium_100g": 0.02,
+        },
+    }]})
+    food = search_off_food("orange juice")
+    assert food["serving_unit"] == "ml"
+    assert food["calories"] == pytest.approx(50)
+    assert food["sodium_mg"] == 20
+    assert food["portions"] == {"serving": 200}
+
+
+def test_search_handles_piece_conversion_and_unsupported_units(monkeypatch):
+    record = {**RICE_RECORD, "portions": {"piece": 25}}
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lambda query: record)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: None)
+    assert search_food("rice", 2, unit="piece")["food"]["calories"] == 65
+    assert search_food("rice", 2, unit="ml")["portion_unavailable"]
+
+
+def test_all_provider_failures_render_a_friendly_error(monkeypatch):
+    from app import create_app
+
+    def fail(query):
+        raise TimeoutError("private request metadata")
+
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", fail)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", fail)
+    response = create_app().test_client().get("/nutrition/search?food=rice")
+    assert response.status_code == 503
+    assert b"Nutrition databases are unavailable" in response.data
+    assert b"private request metadata" not in response.data
+
+
+def test_lookup_serving_and_partial_result_render_without_a_profile(monkeypatch):
+    from app import create_app
+
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lambda query: RICE_RECORD)
+    monkeypatch.setattr("app.nutrition.service.search_off_food", lambda query: None)
+    client = create_app().test_client()
+    response = client.get("/nutrition/search?food=cooked+rice&quantity=2&unit=serving")
+    assert response.status_code == 200
+    assert b"390.0" in response.data
+    assert b"USDA FoodData Central" in response.data
+    assert b"300.0 g total" in response.data
+    assert client.get("/nutrition/search?food=rice&quantity=1&unit=ml").status_code == 422
+
+    monkeypatch.setattr(
+        "app.nutrition.service.search_usda_food",
+        lambda query: {**RICE_RECORD, "protein": None},
+    )
+    response = client.get("/nutrition/search?food=rice")
+    assert response.status_code == 200
+    assert b"missing one or more macros" in response.data
+
+
+@pytest.mark.parametrize("query", [
+    "quantity=invalid", "quantity=100&meat_weight=150", "servings=nan", "unit=ounce",
+])
+def test_search_route_rejects_invalid_options_before_provider_call(monkeypatch, query):
+    from app import create_app
+
+    def unexpected_search(*args):
+        pytest.fail("Invalid options reached the nutrition search")
+
+    monkeypatch.setattr("app.nutrition.routes.search_food", unexpected_search)
+    client = create_app().test_client()
+    response = client.get(f"/nutrition/search?food=rice&{query}", headers={"Accept": "application/json"})
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("search", [
+    {"food": "chicken biryani", "quantity": "200", "unit": "g", "meat_weight": "100"},
+    {"sentence": "I ate 200 g biryani rice and 100 g chicken breast"},
+    {"sentence": "How many calories are there in 300 g chicken biryani including 100 g chicken breast?"},
+])
+def test_check_calculates_biryani_from_separate_weights(search):
+    from app import create_app
+
+    client = create_app().test_client()
+    response = client.get("/nutrition/search", query_string=search, headers={"Accept": "application/json"})
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["estimate"] is True
+    assert result["food"]["quantity_grams"] == 300
+    assert result["food"]["calories"] == 422.6
+    assert [part["quantity_grams"] for part in result["components"]] == [200, 100]
+
+    page = client.get("/nutrition/search", query_string=search)
+    assert page.status_code == 200
+    assert b"422.6" in page.data
+    assert b"Estimate based on the references shown" in page.data
+
+
+@pytest.mark.parametrize(("search", "calories", "ingredients"), [
+    ({"food": "biryani", "quantity": "200", "meat_weight": "100", "chicken_cut": "thigh"},
+     436.6, ["Biryani rice", "Cooked chicken thigh"]),
+    ({"sentence": "I ate 200 g plain cooked rice, 100 g cooked chicken thigh and 10 g ghee"},
+     526.6, ["Plain cooked rice", "Cooked chicken thigh", "Ghee"]),
+])
+def test_check_uses_selected_chicken_cut_and_measured_ghee(search, calories, ingredients):
+    from app import create_app
+
+    response = create_app().test_client().get(
+        "/nutrition/search", query_string=search, headers={"Accept": "application/json"},
+    )
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["food"]["calories"] == calories
+    assert [part["name"] for part in result["components"]] == ingredients
+
+
+def test_check_scales_user_label_without_database_lookup(monkeypatch):
+    from app import create_app
+
+    def unexpected_search(*args, **kwargs):
+        pytest.fail("A user-entered label should not need a database lookup")
+
+    monkeypatch.setattr("app.nutrition.routes.search_food", unexpected_search)
+    client = create_app().test_client()
+    query = {
+        "mode": "label", "food": "Packaged lasagna", "label_grams": 100,
+        "serving_grams": 250, "label_calories": 180, "label_protein": 10,
+    }
+    response = client.get("/nutrition/search", query_string=query, headers={"Accept": "application/json"})
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["food"]["calories"] == 450
+    assert result["food"]["protein"] == 25
+    assert result["food"]["fats"] is None
+    assert b"Nutrition label you entered" in client.get("/nutrition/search", query_string=query).data
+
+
+def test_recipe_scales_ingredients_by_finished_batch_weight(monkeypatch):
+    from app import create_app
+
+    def lookup(name):
+        return {
+            "name": name, "serving_size": 100, "serving_unit": "g",
+            "calories": {"dry pasta": 350, "tomatoes": 25, "olive oil": 900}[name],
+            "protein": 1, "carbohydrates": 1, "fats": 1,
+        }
+
+    monkeypatch.setattr("app.nutrition.service.search_usda_food", lookup)
+    client = create_app().test_client()
+    query = {
+        "mode": "recipe", "food": "Pasta with tomato sauce",
+        "ingredients": "300 g dry pasta\n400 g tomatoes\n20 g olive oil",
+        "batch_grams": 950, "serving_grams": 190,
+    }
+    response = client.get("/nutrition/search", query_string=query, headers={"Accept": "application/json"})
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["recipe_yield"] == 950
+    assert [part["calories"] for part in result["components"]] == [1050, 100, 180]
+    assert result["food"]["calories"] == 266
+    assert result["food"]["quantity_grams"] == 190
+    assert b"for the whole batch" in client.get("/nutrition/search", query_string=query).data
+    assert client.get("/nutrition/search", query_string={**query, "serving_grams": 951}).status_code == 400
+
+
+def test_check_extracts_food_and_amount_from_sentence(monkeypatch):
+    from app import create_app
+
+    def lookup(food, amount, *, unit):
+        assert (food, amount, unit) == ("lasagna", 250, "g")
+        return {"food": {"name": "Lasagna"}}
+
+    monkeypatch.setattr("app.nutrition.routes.search_food", lookup)
+    response = create_app().test_client().get(
+        "/nutrition/search", query_string={"sentence": "I had about 250 grams of lasagna for lunch."},
+        headers={"Accept": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["food"]["name"] == "Lasagna"
+
+
+def test_usda_keeps_branded_liquid_basis(monkeypatch):
+    _mock_usda(monkeypatch, {"foods": [{
+        "description": "Orange juice", "dataType": "Branded",
+        "servingSize": 200, "servingSizeUnit": "mL",
+        "foodNutrients": [{"nutrientId": 1008, "unitName": "KCAL", "value": 48}],
+    }]})
+    record = search_usda_food("orange juice")
+    assert record["serving_unit"] == "ml"
+    assert record["portions"] == {"serving": 200}

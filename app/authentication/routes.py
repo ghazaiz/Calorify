@@ -90,6 +90,12 @@ def register():
     email = email.strip()
     username = username.strip()
 
+    if len(username) > 100 or len(email) > 120:
+        return render_template(
+            "authentication/register.html",
+            error="Username must be at most 100 characters and email at most 120"
+        )
+
     if not re.fullmatch(
         r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
         email
