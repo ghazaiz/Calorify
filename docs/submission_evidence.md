@@ -1,4 +1,4 @@
-﻿# Calorify course submission evidence
+# Calorify course submission evidence
 
 The TaskFlow document provides an example project format. The Calorify distribution plan supplies the operating choices for this project. `Calorify_CICD_Class_Activity.docx` and `Calorify_SCM_Assignment_3.docx` contain the same CI/CD activity.
 
@@ -12,7 +12,7 @@ The TaskFlow document provides an example project format. The Calorify distribut
 | Source control and reviews | Feature PRs into `Development`, release PR into `main`, required CI and review policy | [PR template](../.github/pull_request_template.md) and actual PR records |
 | Unit, persistence, route and integration tests | Isolated SQLite fixtures, provider mocks, packaged-app HTTP smoke test | [Testing](testing.md), [smoke test](../deployment/smoke.py) |
 | Build and distribution | GitHub distribution, SemVer, ZIP, commit manifest and checksum | [Release builder](../deployment/release.py) and Actions artifact |
-| Delivery and approval | Artifact runs on Gunicorn in isolated staging. QA validates the result and the Development Lead approves production. | [Workflow](../.github/workflows/pipeline.yml), staging job output and production approval record |
+| Delivery and approval | Artifact runs on Gunicorn in isolated staging. QA validates the result and the Development Lead approves production. | [Workflow](../.github/workflows/development.yml), staging job output and production approval record |
 | Deployment, monitoring and rollback | Two-slot rolling rollout, health checks, periodic probe and previous-slot rollback | [Operations runbook](operations.md), [rollout script](../deployment/rollout.sh) |
 | Backup and recovery | 3-2-1 schedule, verified SQLite snapshots, encrypted Restic copies and restoration drill | [Operations runbook](operations.md), [database tool](../deployment/database_backup.py) |
 
