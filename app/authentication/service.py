@@ -1,12 +1,18 @@
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from app.core.exceptions import EmailAlreadyRegisteredError
 from app.core.extensions import db
 from app.profile.models import User
 
 
 def hash_password(password):
-    return generate_password_hash(password)
+    return generate_password_hash(
+        password,
+        method="pbkdf2:sha256",
+        salt_length=16
+    )
 
 
 def verify_password(password, password_hash):
@@ -17,7 +23,9 @@ def register_user(username, email, password):
     existing_user = User.query.filter_by(email=email).first()
 
     if existing_user:
-        return None
+        raise EmailAlreadyRegisteredError(
+            "Email already registered"
+        )
 
     password_hash = hash_password(password)
 
@@ -29,7 +37,13 @@ def register_user(username, email, password):
     )
 
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if User.query.filter_by(email=email).first() is not None:
+            raise EmailAlreadyRegisteredError("Email already registered") from None
+        raise
 
     return user
 

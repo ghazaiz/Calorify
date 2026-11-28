@@ -1,137 +1,43 @@
-# Calorify - Project Plan
+﻿# Calorify project plan
 
-## 1. Development Methodology
+## Development model
 
-Calorify will be developed using the **Agile methodology**.
+**Agile, incremental development.** Each increment delivers a working slice of Calorify. The team prioritizes the backlog, defines acceptance criteria, builds and tests a small change, reviews it in a pull request, and uses feedback to plan the next increment. Iteration reviews evaluate the running application and the evidence from tests.
 
-The team will work in short development cycles, regularly review progress, test completed features, fix problems, and improve the code through refactoring.
+| Increment | Deliverable | Evidence in the repository |
+| --- | --- | --- |
+| 1 | Project foundation and account registration, login and logout | Flask application factory, SQLite schema, Authentication module and tests |
+| 2 | Profile setup, nutrition targets and meal journal | Profile and Meals modules, validation and persistence tests |
+| 3 | Calorie Check, guest lookup and progress reports | Nutrition and Reports modules, provider fallback tests and dashboard |
+| 4 | Sentence search, label and recipe calculations, responsive UI | Calorie Check forms, portion tests and release notes |
+| 5 | Release automation, staged smoke tests and recovery | CI/CD workflow, versioned archives, deployment files and operations runbook |
 
-The development process will follow:
+The table describes product increments. PR links, review decisions, CI run URLs and deployment timestamps are captured when a team member performs the actual activity.
 
-**Plan → Design → Develop → Test → Review → Refactor**
+## Team responsibilities
 
-## 2. Team Structure
+| Role | Responsibility |
+| --- | --- |
+| Two developers | Implement features, review each other's pull requests, and integrate changes. One acts as Development Lead and approves production releases. |
+| UI/UX designer | Check responsive layouts, keyboard navigation, forms and feedback. |
+| QA tester | Verify acceptance criteria, examine staging results and record release evidence. |
+| Technical writer | Update release notes, requirements, setup instructions and runbooks. |
 
-The project team consists of five members with four responsibility areas.
+## Software configuration management
 
-| Role             | Number of Members | Main Responsibilities                              |
-| ---------------- | ----------------: | -------------------------------------------------- |
-| Developer        |                 2 | Writes, maintains and integrates application code  |
-| UI/UX Designer   |                 1 | Plans the user interface and user experience       |
-| QA / Tester      |                 1 | Tests features, identifies bugs and verifies fixes |
-| Technical Writer |                 1 | Prepares and maintains project documentation       |
+Use **feature branching** with a shared integration branch. Start each feature or fix from `Development` and open a PR back to `Development`. Review correctness, validation, data isolation, tests and documentation with a second developer. Promote an approved integration through a PR from `Development` to `main`. Keep `main` releasable. The GitHub repository owner configures required reviews and the **CI - Python 3.11 tests** check on both branches.
 
-All team members will participate in project discussions, sprint reviews and coordination.
+Version source releases with **Semantic Versioning**. Record behavior changes in the changelog and set the version centrally in `app/version.py`. Tag the reviewed commit on `main` as `vMAJOR.MINOR.PATCH`. GitHub distributes the code and the workflow distributes a ZIP identified by version and commit, with a SHA-256 checksum. The [operations runbook](operations.md) describes delivery, approval, production, monitoring, and rollback.
 
-## 3. One-Week Development Plan
+## Definition of done
 
-### Day 1 - Foundation
+- Acceptance criteria have been met and the relevant tests pass.
+- Routes, business logic, persistence and templates follow the existing module boundaries.
+- User input is validated, data access is parameterized, and secrets are managed outside version control.
+- Another developer has reviewed the PR and review feedback has been addressed.
+- The affected documentation and changelog have been updated.
+- Releases have a verified staging run, QA sign-off and approval evidence before production.
 
-* Finalize requirements and architecture.
-* Set up the Flask development environment.
-* Configure SQLite and Flask-SQLAlchemy.
-* Create database models.
-* Configure the basic Flask application.
+## Evidence for the course submission
 
-### Day 2 - Authentication and Profile
-
-* Implement user registration.
-* Implement login and logout.
-* Implement secure password hashing.
-* Implement user profile.
-* Implement calorie-goal calculation.
-
-### Day 3 - Nutrition and Meal Logging
-
-* Integrate USDA FoodData Central.
-* Integrate Open Food Facts as a fallback provider.
-* Implement food search.
-* Display nutritional information.
-* Implement adding meals.
-* Implement meal categories.
-* Implement editing and deleting meals.
-
-### Day 4 - Dashboard and Reports
-
-* Implement the dashboard.
-* Display daily calorie information.
-* Display protein, carbohydrates and fats.
-* Implement weekly summaries.
-* Implement charts.
-
-### Day 5 - UI Integration
-
-* Connect application pages.
-* Implement navigation.
-* Connect forms with backend functionality.
-* Add user-friendly error messages.
-* Apply basic responsive styling.
-
-### Day 6 - Testing and Refactoring
-
-* Run unit tests.
-* Perform integration testing.
-* Test nutrition API failures and unavailable results.
-* Identify and fix bugs.
-* Review code for Clean Code principles.
-* Refactor duplicated or unnecessarily complex code.
-
-### Day 7 - Finalisation
-
-* Perform final testing.
-* Complete technical documentation.
-* Review the complete application.
-* Resolve remaining critical bugs.
-* Prepare the final demonstration.
-* Perform the final Git integration and project review.
-
-## 4. Development Rules
-
-* The application will remain divided into five main functional modules:
-
-  1. Authentication
-  2. Profile
-  3. Nutrition
-  4. Meals
-  5. Reports
-
-* Supporting folders such as `core`, `templates`, `static`, `tests` and `docs` will support the five modules and will not be treated as additional functional modules.
-
-* Code will follow Clean Code and modular programming principles.
-
-* Routes, business logic, database models and external API communication will remain separated.
-
-* Existing functionality will not be changed without a clear reason.
-
-* New features will be discussed and approved before implementation.
-
-* Refactoring will be performed when it improves code quality without changing the required behaviour.
-
-## 5. Git Workflow
-
-The team will use Git and GitHub for version control.
-
-The shared development branch is:
-
-`Development`
-
-Team members will work on their own development branches and create Pull Requests when their work is ready for review.
-
-The `main` branch will contain stable project versions.
-
-## 6. Scope Control
-
-Because the project has a one-week development period, priority will be given to the required functionality.
-
-Optional features such as dark mode, barcode scanning, streak tracking, additional nutrition providers, social features and AI-based recommendations will not be implemented unless all required functionality is completed first and the team approves their addition.
-
-## 7. Definition of Done
-
-A feature will be considered complete when:
-
-* The required functionality works.
-* The code follows the project structure.
-* The feature has been tested.
-* Known critical bugs have been fixed.
-* The related documentation has been updated when necessary.
-* The code is ready for integration with the rest of the project.
+Use the [project evidence guide](submission_evidence.md) to map each course deliverable to actual Calorify files and record links to team reviews, Actions runs, and operational checks as they happen.

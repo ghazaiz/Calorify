@@ -1,0 +1,89 @@
+{% from "_icons.html" import icon with context %}
+{% set food = result.food %}
+{% set reference = result.reference %}
+{% set units = portion_options(reference) %}
+<section class="nutrition-result" data-nutrition-result
+    data-reference='{{ reference|tojson }}' data-units='{{ units|tojson }}'
+    data-portion-unavailable="{{ 'true' if result.portion_unavailable else 'false' }}"
+    {% if not result.portion_unavailable %}
+        {% if current_user.is_authenticated %}data-check-result='{{ {"food_name": food.name, "calories": food.calories}|tojson }}'
+        {% else %}data-guest-result='{{ {"food_name": food.name, "calories": food.calories}|tojson }}'{% endif %}
+    {% endif %}>
+    <div class="result-header">
+        <div class="result-title">
+            <h2>{{ food.name }}</h2>
+            {% if food.brand %}<p class="page-subtitle">{{ food.brand }}</p>{% endif %}
+            <p class="page-subtitle">
+                {% set source_name = food.source_name or {'usda': 'USDA FoodData Central', 'open_food_facts': 'Open Food Facts', 'meal': 'Ingredient totals', 'recipe': 'Recipe portion'}.get(result.source) %}
+                {% if food.source_url %}<a href="{{ food.source_url }}" target="_blank" rel="noopener noreferrer">{{ source_name }}</a>
+                {% else %}{{ source_name }}{% endif %}
+                {% if food.data_type %} · {{ food.data_type }}{% endif %}
+            </p>
+        </div>
+        <div class="result-kcal"><strong data-nutrient="calories">{{ food.calories }}</strong><small>KCAL</small></div>
+    </div>
+    {% if result.estimate %}
+        <p class="result-note">Estimate based on the references shown. Ingredients and preparation can change the total.</p>
+    {% endif %}
+    {% if result.recipe_yield %}
+        <p class="result-note">Your {{ food.quantity|round(2) }} g portion is {{ (food.quantity / result.recipe_yield * 100)|round(2) }}% of the {{ result.recipe_yield|round(2) }} g finished batch. Ingredient weights and calories below are for the whole batch.</p>
+    {% endif %}
+    {% if result.components %}
+        <ul class="meal-components">
+        {% for component in result.components %}
+            <li>
+                <span>{{ component.quantity|round(2) }} {{ component.quantity_unit }} ·
+                    {% if component.source_url %}<a href="{{ component.source_url }}" target="_blank" rel="noopener noreferrer" title="{{ component.source_name or component.name }}">{{ component.name }}</a>
+                    {% else %}{{ component.name }}{% if component.source_name %}<small> ({{ component.source_name }})</small>{% endif %}{% endif %}
+                </span>
+                <strong>{{ component.calories }} kcal</strong>
+            </li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+    {% if result.components and not result.recipe_yield %}
+        <p class="result-note">{{ food.quantity|round(2) }} {{ food.quantity_unit }} total</p>
+    {% endif %}
+    <div class="result-portion" {% if result.components %}hidden{% endif %}>
+        <label>Amount <input data-portion-amount type="number" min="0.01" step="any" max="{{ max_nutrition_quantity }}" value="{{ food.quantity }}" {% if result.components %}readonly{% else %}required{% endif %}></label>
+        <label>Unit
+            <select data-portion-unit {% if result.components %}disabled{% endif %}>
+            {% for unit, size in units.items() %}
+                <option value="{{ unit }}" {% if food.quantity_unit == unit %}selected{% endif %}>
+                    {{ unit if unit == reference.serving_unit else unit|capitalize ~ ' (' ~ size ~ ' ' ~ reference.serving_unit ~ ')' }}
+                </option>
+            {% endfor %}
+            </select>
+        </label>
+        <p class="page-subtitle" data-portion-basis aria-live="polite">{{ food.basis_amount|round(2) }} {{ reference.serving_unit }} total</p>
+    </div>
+    <p class="form-error" data-portion-error role="status"></p>
+    <div class="result-macros" aria-live="polite">
+        {% for key, label in [('protein', 'Protein'), ('carbohydrates', 'Carbs'), ('fats', 'Fat')] %}
+        <div><small>{{ label }}</small><strong><span data-nutrient="{{ key }}">{{ food[key] if food[key] is not none else '?' }}</span>{% if food[key] is not none %} <small>g</small>{% endif %}</strong></div>
+        {% endfor %}
+    </div>
+    {% if food.fiber is not none or food.sugars is not none or food.sodium_mg is not none %}
+    <dl class="result-details">
+        {% for key, label, unit in [('fiber', 'Fiber', 'g'), ('sugars', 'Sugars', 'g'), ('sodium_mg', 'Sodium', 'mg')] %}
+        {% if food[key] is not none %}<div><dt>{{ label }}</dt><dd><span data-nutrient="{{ key }}">{{ food[key] }}</span> {{ unit }}</dd></div>{% endif %}
+        {% endfor %}
+    </dl>
+    {% endif %}
+    {% if not food.complete %}
+        <p class="result-note">This source is missing one or more macros. Enter all macros from a nutrition label to log the meal.</p>
+    {% endif %}
+    {% if current_user.is_authenticated and food.complete %}
+        {% if calorie_goal %}
+        <p class="result-note" data-goal-preview data-goal="{{ calorie_goal }}" data-eaten="{{ today.calories }}"></p>
+        {% endif %}
+        <div class="fit-actions">
+            <label>Meal type <select data-add-meal-type>
+                <option value="breakfast">Breakfast</option><option value="lunch">Lunch</option>
+                <option value="dinner" selected>Dinner</option><option value="snack">Snack</option>
+            </select></label>
+            <button class="primary-button" type="button" data-add-check disabled>{{ icon('plus') }} Log meal</button>
+        </div>
+        <p class="form-error" data-check-error role="status"></p>
+    {% endif %}
+</section>

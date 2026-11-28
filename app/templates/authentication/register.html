@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
 
 {% block title %}Register | Calorify{% endblock %}
+{% block navigation %}{% endblock %}
+{% block main_class %}auth-page{% endblock %}
 
 {% block content %}
 
-<div class="row justify-content-center">
-    <div class="col-md-5">
-
-        <div class="card p-4 mt-5">
+<div class="auth-marketing"><a class="guest-brand" href="{{ url_for('authentication.login') }}"><span class="brand-fruit">{% include "_brand_mark.html" %}</span> Calorify</a><h1>Eat smart.<br>Track simply.</h1><p>Log meals, water and macros in one place — or just check what's on your plate.</p><div class="marketing-card" aria-hidden="true"><div class="marketing-ring-circle"><div><strong>460</strong><small>LEFT</small></div></div><div class="marketing-macros"><div><span>Protein</span><div class="macro-bar"><span class="protein" style="width: 58%"></span></div></div><div><span>Carbs</span><div class="macro-bar"><span class="carbs" style="width: 66%"></span></div></div><div><span>Fat</span><div class="macro-bar"><span class="fat" style="width: 48%"></span></div></div></div></div><footer>{{ icon('check') }} Free forever plan &nbsp;&nbsp; {{ icon('check') }} Light & dark themes &nbsp;&nbsp; {{ icon('check') }} No ads</footer></div><div class="auth-form-wrap">
+        <div class="auth-card">
 
             <div class="text-center mb-4">
                 <h2>Create your account</h2>
@@ -35,7 +36,7 @@
                     <input
                         type="text"
                         id="username"
-                        name="username"
+                        name="username" autocomplete="username" maxlength="100"
                         class="form-control"
                         placeholder="Enter your username"
                         required
@@ -54,7 +55,7 @@
                     <input
                         type="email"
                         id="email"
-                        name="email"
+                        name="email" autocomplete="email" maxlength="120"
                         class="form-control"
                         placeholder="Enter your email"
                         required
@@ -75,7 +76,7 @@
                         <input
                             type="password"
                             id="password"
-                            name="password"
+                            name="password" autocomplete="new-password"
                             class="form-control"
                             placeholder="At least 8 characters"
                             minlength="8"
@@ -84,7 +85,7 @@
 
                         <button
                             type="button"
-                            id="passwordToggle"
+                            data-password-toggle aria-controls="password" aria-pressed="false"
                             class="btn btn-outline-secondary">
                             Show
                         </button>
@@ -117,33 +118,15 @@
 
             </p>
 
-        </div>
+            <div class="guest-option">
+                <span>Just want to check a food?</span>
+                <a href="/nutrition/guest">Continue as guest</a>
+            </div>
 
     </div>
 </div>
 
 
-<script>
 
-const passwordInput = document.getElementById("password");
-const passwordToggle = document.getElementById("passwordToggle");
-
-passwordToggle.addEventListener("click", function () {
-
-    if (passwordInput.type === "password") {
-
-        passwordInput.type = "text";
-        passwordToggle.textContent = "Hide";
-
-    } else {
-
-        passwordInput.type = "password";
-        passwordToggle.textContent = "Show";
-
-    }
-
-});
-
-</script>
 
 {% endblock %}

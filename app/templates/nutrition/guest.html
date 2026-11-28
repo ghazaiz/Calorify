@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon with context %}
+{% block navigation %}{% endblock %}
+{% block main_class %}guest-shell{% endblock %}
+{% block title %}How many calories? | Calorify{% endblock %}
+{% block content %}
+<header class="guest-header">
+    <a class="guest-brand" href="{{ url_for('nutrition.guest_search') }}"><span class="brand-fruit">{% include "_brand_mark.html" %}</span> Calorify</a>
+    <span class="guest-badge">{{ icon('search') }} Guest mode</span>
+    <nav>
+        <a href="{{ url_for('authentication.login') }}">Log in</a>
+        <a class="primary-button small" href="/auth/register">Create free account</a>
+    </nav>
+</header>
+
+<div class="guest-layout">
+    <div class="guest-main">
+        <h1>How many calories?</h1>
+        <p class="page-subtitle">Type any food or meal. No account, no tracking — just the numbers.</p>
+
+        {% if error %}<div class="form-alert" role="alert">{{ error }}</div>{% endif %}
+
+        {% include "nutrition/_search_form.html" %}
+
+        {% if result and result.food %}
+                {% include "nutrition/_result.html" %}
+            {% endif %}
+        <div class="quick-picks guest-picks" data-quick-picks>
+            <b>Popular:</b>
+            {% for pick in ['Boiled egg', 'Flat white', 'Pizza slice', 'Cooked rice', 'Avocado', 'Croissant'] %}<button type="button">{{ pick }}</button>{% endfor %}
+        </div>
+    </div>
+
+    <aside class="guest-side">
+        <section class="insight-card">
+            <div class="chart-heading"><h2>This session</h2><span>{{ icon('untracked') }} Not saved</span></div>
+            <ul class="recent-checks" data-session-checks><li class="muted">Foods you check will appear here.</li></ul>
+            <p class="session-total" data-session-total hidden>Calories across recent checks <b></b></p>
+        </section>
+        <section class="guest-cta">
+            <h2>Want to track your whole day?</h2>
+            <p>Create an account to log meals, set goals and see your weekly report.</p>
+            <a class="primary-button" href="/auth/register">Create free account {{ icon('arrow-right') }}</a>
+        </section>
+    </aside>
+</div>
+{% endblock %}

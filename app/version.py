@@ -1,0 +1,6 @@
+APP_MAJOR = 1
+APP_MINOR = 4
+APP_PATCH = 0
+APP_VERSION = f"{APP_MAJOR}.{APP_MINOR}.{APP_PATCH}"
+
+RELEASE_NAME = "Release and Recovery"

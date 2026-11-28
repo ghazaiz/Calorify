@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up Calorify to external and offsite storage
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=calorify
+Group=calorify
+EnvironmentFile=/etc/calorify/backup.env
+ExecStart=/bin/bash /srv/calorify/ops/backup.sh
+UMask=0077

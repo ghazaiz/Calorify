@@ -1,0 +1,31 @@
+{% from "_icons.html" import icon with context %}
+<div class="meal-modal" data-meal-modal role="dialog" aria-modal="true" aria-labelledby="meal-dialog-title" hidden>
+    <form class="meal-dialog" data-meal-form>
+        <button class="modal-close" type="button" data-close-meal aria-label="Close">{{ icon('close') }}</button>
+        <h2 id="meal-dialog-title" data-meal-dialog-title>Log a meal</h2>
+        <p>Enter the nutrition totals for the entire amount. <a href="{{ url_for('nutrition.search') }}">Look up a food</a></p>
+        <label>Food name<input name="food_name" maxlength="200" required></label>
+        <div class="form-row">
+            <label>Meal type<select name="meal_type"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option></select></label>
+            <label>Date<input name="date" type="date" value="{{ today.date if today is defined else today_iso }}"></label>
+        </div>
+        <div class="form-row">
+            <label>Quantity<input name="quantity" type="number" min="0.01" step="any" value="1" required></label>
+            <label>Unit<input name="serving_unit" maxlength="50" value="serving" required></label>
+        </div>
+        <p class="search-hint" data-resize-status role="status"></p>
+        <div class="form-row">
+            <label>Calories (kcal)<input name="calories" type="number" min="0" step="any" required></label>
+            <label>Protein (g)<input name="protein" type="number" min="0" step="any" required></label>
+        </div>
+        <div class="form-row">
+            <label>Carbs (g)<input name="carbohydrates" type="number" min="0" step="any" required></label>
+            <label>Fat (g)<input name="fats" type="number" min="0" step="any" required></label>
+        </div>
+        {% if calorie_goal %}
+            <p class="meal-fit" data-meal-fit data-goal="{{ calorie_goal }}" data-eaten="{{ today.calories }}" hidden></p>
+        {% endif %}
+        <p class="form-error" data-meal-error role="status"></p>
+        <button class="primary-button modal-submit" type="submit">Save meal</button>
+    </form>
+</div>

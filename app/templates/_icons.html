@@ -1,0 +1,3 @@
+{% macro icon(name, extra_class='') -%}
+<svg class="app-icon icon-{{ name }}{% if extra_class %} {{ extra_class }}{% endif %}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="{{ url_for('static', filename='icons.svg', v=app_version) }}#{{ name }}"></use></svg>
+{%- endmacro %}

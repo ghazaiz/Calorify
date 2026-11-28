@@ -1,0 +1,16 @@
+[Unit]
+Description=Calorify Gunicorn slot %i
+After=network.target
+
+[Service]
+User=calorify
+Group=calorify
+WorkingDirectory=/srv/calorify/slots/%i
+Environment=APP_ENV=production
+EnvironmentFile=/etc/calorify/app.env
+ExecStart=/bin/sh -ec 'case "%i" in a) port=8001;; b) port=8002;; *) exit 2;; esac; exec .venv/bin/gunicorn --bind "127.0.0.1:$${port}" --workers 2 --access-logfile - --error-logfile - main:app'
+Restart=on-failure
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

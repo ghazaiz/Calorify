@@ -1,0 +1,7 @@
+[Unit]
+Description=Check Calorify readiness through the production proxy
+After=nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8080/healthz

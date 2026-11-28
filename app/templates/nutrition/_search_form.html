@@ -1,0 +1,97 @@
+{% from "_icons.html" import icon with context %}
+<form method="GET" action="{{ url_for('nutrition.search') }}" class="food-search food-lookup">
+    <label class="food-query">Food name
+        <input name="food" value="{{ searched_food or '' }}" maxlength="200" placeholder="e.g. chicken biryani or a croissant" required>
+    </label>
+    <label>Amount
+        <input name="quantity" type="number" min="0.01" max="{{ max_nutrition_quantity }}" step="any"
+               value="{{ request.args.get('quantity', '') }}" placeholder="Optional">
+    </label>
+    <label>Unit
+        <select name="unit">
+        {% for value, label in [('g', 'Grams'), ('ml', 'Milliliters'), ('serving', 'Servings'), ('piece', 'Pieces')] %}
+            <option value="{{ value }}" {% if request.args.get('unit', 'g') == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+        </select>
+    </label>
+    <details class="biryani-portion" data-biryani-portion {% if request.args.get('meat_weight') %}open{% endif %}>
+        <summary>{{ icon('chevron') }} Weigh the biryani rice and chicken separately</summary>
+        <div class="biryani-fields">
+        <label>Cooked chicken (g), without bones
+            <input name="meat_weight" type="number" min="0.01" max="{{ max_nutrition_quantity }}" step="any"
+                   value="{{ request.args.get('meat_weight', '') }}" placeholder="e.g. 100">
+        </label>
+        <label>Chicken preparation
+            <select name="chicken_cut">
+                <option value="breast">Plain breast</option>
+                <option value="thigh" {% if request.args.get('chicken_cut') == 'thigh' %}selected{% endif %}>Thigh</option>
+            </select>
+        </label>
+        </div>
+        <p class="search-hint">Use the Amount field above for the rice portion in grams.</p>
+    </details>
+    <button class="primary-button" type="submit">{{ icon('search') }} <span>Search</span></button>
+</form>
+<details class="sentence-search" {% if 'sentence' in request.args %}open{% endif %}>
+    <summary>{{ icon('chevron') }} Search with a sentence</summary>
+    <form method="GET" action="{{ url_for('nutrition.search') }}" class="food-search">
+        <label class="food-query">What did you eat?
+            <input name="sentence" value="{{ request.args.get('sentence', '') }}" maxlength="500"
+                   placeholder="I ate 200 g biryani rice and 100 g chicken" required>
+        </label>
+        <button class="primary-button" type="submit">{{ icon('search') }} <span>Search</span></button>
+        <p class="search-hint">Include each food and its weight, for example “150 g cooked rice and 100 g chicken.”</p>
+    </form>
+</details>
+
+{% for mode, title in [('label', 'Calculate from a nutrition label'), ('recipe', 'Calculate from a homemade recipe')] %}
+{% set active = request.args.get('mode') == mode %}
+<details class="sentence-search" {% if active %}open{% endif %}>
+    <summary>{{ icon('chevron') }} {{ title }}</summary>
+    <form method="GET" action="{{ url_for('nutrition.search') }}" class="food-search measurement-form">
+        <input type="hidden" name="mode" value="{{ mode }}">
+        <label class="food-query">{{ 'Food name' if mode == 'label' else 'Recipe name' }}
+            <input name="food" maxlength="200" value="{{ request.args.get('food', '') if active else '' }}" required>
+        </label>
+        {% if mode == 'label' %}
+        <label>Label weight (g)
+            <input name="label_grams" type="number" min="0.01" max="{{ max_nutrition_quantity }}" step="any"
+                   value="{{ request.args.get('label_grams', 100) if active else 100 }}" required>
+        </label>
+        <label>Calories on label (kcal)
+            <input name="label_calories" type="number" min="0" max="{{ max_nutrition_quantity }}" step="any"
+                   value="{{ request.args.get('label_calories', '') if active else '' }}" placeholder="e.g. 180" required>
+        </label>
+        <p class="search-hint">Use the weight the label lists alongside its calories, usually 100 g or one serving.</p>
+        {% else %}
+        <label class="recipe-ingredients">Ingredients and weights
+            <textarea name="ingredients" rows="4" maxlength="2000"
+                      placeholder="300 g dry pasta&#10;400 g tomatoes&#10;20 g olive oil" required>{{ request.args.get('ingredients', '') if active else '' }}</textarea>
+        </label>
+        <p class="search-hint">Enter one ingredient per line with its weight. Specify raw, dry or cooked where it matters. Include the oil, butter or sauces that end up in the dish.</p>
+        <label>Finished batch (g)
+            <input name="batch_grams" type="number" min="0.01" max="{{ max_nutrition_quantity }}" step="any"
+                   value="{{ request.args.get('batch_grams', '') if active else '' }}" required>
+        </label>
+        {% endif %}
+        <label>Weight eaten (g)
+            <input name="serving_grams" type="number" min="0.01" max="{{ max_nutrition_quantity }}" step="any"
+                   value="{{ request.args.get('serving_grams', '') if active else '' }}" placeholder="e.g. 250" required>
+        </label>
+        {% if mode == 'label' %}
+        <details class="optional-macros" {% if active and (request.args.get('label_protein') or request.args.get('label_carbohydrates') or request.args.get('label_fats')) %}open{% endif %}>
+            <summary>{{ icon('chevron') }} Add protein, carbs and fat</summary>
+            <div class="macro-inputs">
+                {% for key, title in [('protein', 'Protein (g)'), ('carbohydrates', 'Carbs (g)'), ('fats', 'Fat (g)')] %}
+                <label>{{ title }}
+                    <input name="label_{{ key }}" type="number" min="0" max="{{ max_nutrition_quantity }}" step="any"
+                           value="{{ request.args.get('label_' ~ key, '') if active else '' }}">
+                </label>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        <button class="primary-button" type="submit"><span>Calculate</span></button>
+    </form>
+</details>
+{% endfor %}

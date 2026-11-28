@@ -1,150 +1,62 @@
-# Calorify - Testing Strategy
+# Calorify testing
 
-## 1. Testing Approach
+Run from the `Calorify` directory with the virtual environment active.
 
-Calorify will use automated and manual testing to verify that the application works correctly.
+```powershell
+python -m pytest
+node --check app/static/js/script.js
+```
 
-Testing will be performed throughout development rather than only at the end of the project.
+Pytest gives each test its own temporary SQLite database. The main suite
+uses provider response fixtures and tests registration, login, profiles,
+food matching, nutrient parsing, portions, fallback failures, meal logging,
+and daily and weekly totals after a meal is added, modified, or deleted.
 
-The testing process will follow:
+## Test levels and release evidence
 
-**Develop → Test → Fix → Retest → Refactor**
+| Level | Calorify example |
+| --- | --- |
+| Unit | Nutrition scaling, provider matching, and profile calculations |
+| Database | User isolation, meal persistence, and account deletion in temporary SQLite files |
+| Route | Login redirects, invalid meal quantities, and readiness on an unavailable schema |
+| Integration | The workflow runs the extracted release over HTTP and verifies nutrition lookup, save, retrieval and reports |
+| Recovery | Snapshot, restore and integrity checks on the staging SQLite file |
+| Manual browser | Check navigation, responsive forms, light and dark mode, and use **Log meal** from a nutrition search result |
 
-## 2. Testing Framework
+Run the HTTP exercise against an isolated test instance with
+`python deployment/smoke.py http://127.0.0.1:5000`. It creates a temporary account
+and deletes it at the end. Use `--health-only` for a read-only readiness check.
+See [operations](operations.md) for the release gates and the [evidence guide](submission_evidence.md)
+for artifacts to collect.
 
-The project will use **Pytest** for automated testing.
+## Live provider tests
 
-External nutrition APIs will be mocked during tests so that tests do not depend on real API responses.
+Open Food Facts needs internet access. USDA FoodData Central also needs
+a free `USDA_API_KEY` in the environment or `.env`.
 
-## 3. Types of Testing
+```powershell
+$env:RUN_INTEGRATION_TESTS = "1"
+python -m pytest tests/test_nutrition.py -k live
+```
 
-### 3.1 Unit Testing
+## Browser checks
 
-Unit tests will verify individual functions and services separately.
+1. Start the app with `python main.py` and open `http://127.0.0.1:5000`.
+2. Search for banana as a guest. Change the amount to 150 g and check the source and updated nutrients.
+3. Register, sign in, and save a profile. Confirm the dashboard shows the saved targets.
+4. Find a food with a complete result and log it. Confirm the dashboard and weekly report include it.
+5. Edit the logged amount and confirm the same-unit nutrition changes proportionally. Delete the meal and confirm the totals decrease.
+6. Check the navigation, forms, and result card in desktop and phone widths.
 
-Examples:
+For API clients, request `GET /nutrition/search?food=banana&quantity=150&unit=g`
+with `Accept: application/json`. The `reference` object contains the provider
+basis and `food` contains the scaled values. Nutrients missing from the provider
+are JSON `null`. A successful result can be incomplete. Check `food.complete`
+before offering to log the lookup.
 
-* Password hashing and verification
-* Calorie target calculation
-* Meal calculations
-* Nutrition data processing
-* Input validation
-
-### 3.2 Integration Testing
-
-Integration tests will verify that different parts of the application work together correctly.
-
-Examples:
-
-* Registration and database storage
-* Login and authentication
-* Profile updates
-* Adding meals to the database
-* Retrieving daily meal summaries
-
-### 3.3 API Testing
-
-Nutrition API communication will be tested using mocked responses.
-
-The tests will cover:
-
-* Successful API response
-* Food not found
-* Invalid API response
-* API timeout or failure
-* Fallback from USDA to Open Food Facts
-
-### 3.4 Manual Testing
-
-Important user workflows will also be tested manually through the web interface.
-
-Examples:
-
-* Registering a new account
-* Logging in and logging out
-* Updating a profile
-* Searching for food
-* Adding, editing and deleting meals
-* Viewing daily information
-* Viewing weekly reports
-
-## 4. Main Test Cases
-
-| Test Area      | Test                                   |
-| -------------- | -------------------------------------- |
-| Authentication | User can register                      |
-| Authentication | Duplicate email is rejected            |
-| Authentication | User can log in                        |
-| Authentication | Invalid login is rejected              |
-| Profile        | User can update profile                |
-| Profile        | Calorie target is calculated           |
-| Nutrition      | Food search returns nutrition data     |
-| Nutrition      | API failure is handled                 |
-| Nutrition      | Fallback provider is used              |
-| Meals          | User can add a meal                    |
-| Meals          | User can edit their meal               |
-| Meals          | User can delete their meal             |
-| Meals          | User cannot access another user's meal |
-| Reports        | Daily totals are calculated correctly  |
-| Reports        | Weekly summary is generated            |
-| Reports        | Charts receive correct data            |
-
-## 5. Test Data
-
-Tests will use separate test data and a test database where required.
-
-Real user data will not be used for automated testing.
-
-External API responses will be mocked to make tests predictable and repeatable.
-
-## 6. Error Testing
-
-The application will be tested for common errors, including:
-
-* Invalid form data
-* Missing required fields
-* Incorrect login information
-* Food not found
-* External API failure
-* Database errors
-* Unauthorized access
-
-The application should display a clear error message instead of crashing.
-
-## 7. Security Testing
-
-Security-related tests will verify that:
-
-* Passwords are never stored as plain text.
-* Users cannot access another user's private data.
-* Protected pages require authentication.
-* API keys are not stored directly in source code.
-
-## 8. Code Coverage
-
-The team will aim for approximately **80% automated test coverage** for important application logic.
-
-Coverage will be reviewed during the testing and refactoring phase.
-
-## 9. Definition of Testing Completion
-
-Testing for a feature will be considered complete when:
-
-* The expected functionality works.
-* Important error cases have been tested.
-* Automated tests pass.
-* Relevant integration tests pass.
-* Critical bugs have been fixed.
-* The feature does not break existing functionality.
-
-## 10. Testing and Refactoring
-
-After testing, the team will review the code for:
-
-* Duplicate code
-* Unnecessary complexity
-* Poor naming
-* Large functions
-* Incorrect separation of responsibilities
-
-Refactoring will improve the code structure without changing the expected behaviour of the application.
+| Status | Meaning |
+| --- | --- |
+| 400 | The food name, amount, or unit is invalid |
+| 404 | No compatible database record was found |
+| 422 | The selected record cannot convert the requested portion |
+| 503 | The nutrition databases are unavailable |

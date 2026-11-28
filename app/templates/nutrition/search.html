@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block navigation %}{% endblock %}
+{% block main_class %}app-page-shell{% endblock %}
+{% block title %}Calorie Check | Calorify{% endblock %}
+{% block content %}
+<div class="app-page">
+    <div class="page-heading">
+        <h1>Calorie Check</h1>
+    </div>
+    {% if error %}<div class="form-alert page-alert" role="alert">{{ error }}</div>{% endif %}
+
+    <div class="check-layout">
+        <div class="check-main">
+            <section class="search-card">
+                {% include "nutrition/_search_form.html" %}
+            </section>
+
+            {% if result and result.food %}
+                {% include "nutrition/_result.html" %}
+            {% endif %}
+        </div>
+
+        <aside class="check-side">
+            <section class="insight-card">
+                <h2>Quick picks</h2>
+                <div class="quick-picks" data-quick-picks>
+                    {% for pick in ['Chicken biryani', 'Daal chawal', 'Chicken karahi', 'Banana', 'Boiled egg', 'Flat white', 'Cooked rice', 'Apple'] %}<button type="button">{{ pick }}</button>{% endfor %}
+                </div>
+            </section>
+            <section class="insight-card">
+                <div class="chart-heading"><h2>Recent checks</h2><button class="link-button" type="button" data-clear-checks>Clear</button></div>
+                <ul class="recent-checks" data-recent-checks><li class="muted">No checks yet.</li></ul>
+            </section>
+        </aside>
+    </div>
+</div>
+{% include "_sidebar.html" %}
+{% endblock %}
